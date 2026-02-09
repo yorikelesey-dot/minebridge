@@ -17,23 +17,42 @@ interface UserState {
   gameVersion?: string;
   loader?: string;
   results?: any[];
+  currentPage?: number;
   timestamp: number;
 }
 
 const userStates = new Map<number, UserState>();
 
+// Хранилище результатов поиска (для пагинации)
+interface SearchResults {
+  results: any[];
+  projectType: string;
+  gameVersion?: string;
+  loader?: string;
+  timestamp: number;
+}
+
+const searchResults = new Map<number, SearchResults>();
+
 // Автоочистка старых состояний (старше 1 часа)
 setInterval(() => {
   const oneHourAgo = Date.now() - 60 * 60 * 1000;
+  
   for (const [userId, state] of userStates.entries()) {
     if (state.timestamp < oneHourAgo) {
       userStates.delete(userId);
     }
   }
   
+  for (const [userId, search] of searchResults.entries()) {
+    if (search.timestamp < oneHourAgo) {
+      searchResults.delete(userId);
+    }
+  }
+  
   // Логирование размера Map
-  if (userStates.size > 0) {
-    console.log(`Active user states: ${userStates.size}`);
+  if (userStates.size > 0 || searchResults.size > 0) {
+    console.log(`Active states: ${userStates.size}, Active searches: ${searchResults.size}`);
   }
 }, 10 * 60 * 1000); // Каждые 10 минут
 
@@ -255,21 +274,32 @@ bot.on('text', async (ctx) => {
 
   await saveSearchHistory(userId, query, results.length);
 
+  // Сохраняем результаты для пагинации
+  searchResults.set(userId, {
+    results,
+    projectType,
+    gameVersion: state.gameVersion,
+    loader: state.loader,
+    timestamp: Date.now(),
+  });
+
+  const page = 0;
+  const itemsPerPage = 5;
+  const totalPages = Math.ceil(results.length / itemsPerPage);
+
   let message = `📦 Найдено результатов: ${results.length}\n`;
   if (state.gameVersion) message += `🎮 Версия: ${state.gameVersion}\n`;
   if (state.loader) message += `⚙️ Загрузчик: ${state.loader}\n`;
+  if (totalPages > 1) message += `📄 Страница: ${page + 1}/${totalPages}\n`;
   message += '\n';
   
-  results.slice(0, 5).forEach((item, index) => {
+  results.slice(0, itemsPerPage).forEach((item, index) => {
     message += `${index + 1}. ${item.title}\n`;
     message += `   📥 ${item.downloads} загрузок\n`;
     message += `   ${item.description.substring(0, 60)}...\n\n`;
   });
 
-  state.results = results;
-  setUserState(userId, state);
-
-  await ctx.reply(message, createResultsKeyboard(results, 'modrinth', projectType));
+  await ctx.reply(message, createResultsKeyboard(results, 'modrinth', projectType, page));
   userStates.delete(userId);
 });
 
@@ -348,4 +378,42 @@ bot.action(/download_modrinth_(.+)_(.+)/, async (ctx) => {
 bot.catch((err, ctx) => {
   console.error('Bot error:', err);
   ctx.reply('❌ Произошла ошибка. Попробуй позже.', mainMenuKeyboard);
+});
+
+// Пагинация результатов
+bot.action(/page_modrinth_(.+)_(\d+)/, async (ctx) => {
+  const userId = ctx.from?.id;
+  if (!userId) return;
+
+  const projectType = ctx.match[1];
+  const page = parseInt(ctx.match[2]);
+
+  const search = searchResults.get(userId);
+  if (!search) {
+    return ctx.answerCbQuery('⏳ Результаты устарели. Сделай новый поиск.');
+  }
+
+  const itemsPerPage = 5;
+  const totalPages = Math.ceil(search.results.length / itemsPerPage);
+  const start = page * itemsPerPage;
+
+  let message = `📦 Найдено результатов: ${search.results.length}\n`;
+  if (search.gameVersion) message += `🎮 Версия: ${search.gameVersion}\n`;
+  if (search.loader) message += `⚙️ Загрузчик: ${search.loader}\n`;
+  if (totalPages > 1) message += `📄 Страница: ${page + 1}/${totalPages}\n`;
+  message += '\n';
+
+  search.results.slice(start, start + itemsPerPage).forEach((item, index) => {
+    message += `${start + index + 1}. ${item.title}\n`;
+    message += `   📥 ${item.downloads} загрузок\n`;
+    message += `   ${item.description.substring(0, 60)}...\n\n`;
+  });
+
+  await ctx.editMessageText(message, createResultsKeyboard(search.results, 'modrinth', projectType, page));
+  await ctx.answerCbQuery();
+});
+
+// Заглушка для кнопки с номером страницы
+bot.action('noop', async (ctx) => {
+  await ctx.answerCbQuery();
 });

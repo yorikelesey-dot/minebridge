@@ -67,17 +67,38 @@ export const loaderKeyboard = Markup.inlineKeyboard([
   ],
 ]);
 
-export function createResultsKeyboard(results: any[], source: 'modrinth' | 'curseforge', type: string) {
-  const buttons = results.slice(0, 5).map((item, index) => {
+export function createResultsKeyboard(results: any[], source: 'modrinth' | 'curseforge', type: string, page: number = 0) {
+  const itemsPerPage = 5;
+  const totalPages = Math.ceil(results.length / itemsPerPage);
+  const start = page * itemsPerPage;
+  const end = start + itemsPerPage;
+  
+  const buttons = results.slice(start, end).map((item, index) => {
     const title = source === 'modrinth' ? item.title : item.name;
     const id = source === 'modrinth' ? item.project_id : item.id;
     return [Markup.button.callback(
-      `${index + 1}. ${title.substring(0, 30)}...`,
+      `${start + index + 1}. ${title.substring(0, 30)}...`,
       `select_${source}_${type}_${id}`
     )];
   });
 
-  buttons.push([Markup.button.callback('« Назад в меню', 'main_menu')]);
+  // Навигация
+  const nav = [];
+  if (page > 0) {
+    nav.push(Markup.button.callback('◀️ Назад', `page_${source}_${type}_${page - 1}`));
+  }
+  if (totalPages > 1) {
+    nav.push(Markup.button.callback(`${page + 1}/${totalPages}`, 'noop'));
+  }
+  if (page < totalPages - 1) {
+    nav.push(Markup.button.callback('Вперёд ▶️', `page_${source}_${type}_${page + 1}`));
+  }
+  
+  if (nav.length > 0) {
+    buttons.push(nav);
+  }
+
+  buttons.push([Markup.button.callback('« Главное меню', 'main_menu')]);
   return Markup.inlineKeyboard(buttons);
 }
 

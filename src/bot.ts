@@ -5,6 +5,7 @@ import { searchModrinth, getModrinthVersions } from './api/modrinth';
 import { searchCurseForge, getCurseForgeFiles } from './api/curseforge';
 import { checkRateLimit, logRequest, saveSearchHistory, getStats, getTopUsers, getPopularSearches, getActivityByHour, logDownload, getDownloadStats } from './database';
 import { downloadFile, formatFileSize, canSendDirectly } from './utils/download';
+import { supabase } from './database';
 
 export const bot = new Telegraf(config.telegramToken);
 
@@ -72,6 +73,67 @@ bot.command('start', async (ctx) => {
     'Выбери категорию или используй поиск:',
     { ...keyboard, ...permKeyboard }
   );
+});
+
+// Команда /mystats - личная статистика
+bot.command('mystats', async (ctx) => {
+  const userId = ctx.from?.id;
+  if (!userId) return;
+
+  try {
+    // Получаем статистику пользователя
+    const { data: requests } = await supabase
+      .from('user_requests')
+      .select('*')
+      .eq('user_id', userId);
+
+    const { data: searches } = await supabase
+      .from('search_history')
+      .select('*')
+      .eq('user_id', userId);
+
+    const { data: downloads } = await supabase
+      .from('download_stats')
+      .select('*')
+      .eq('user_id', userId);
+
+    // Подсчёт категорий
+    const categories = new Map<string, number>();
+    requests?.forEach((req: any) => {
+      const type = req.request_type.replace('search_', '');
+      categories.set(type, (categories.get(type) || 0) + 1);
+    });
+
+    const topCategory = Array.from(categories.entries())
+      .sort((a, b) => b[1] - a[1])[0];
+
+    let message = '📊 Твоя статистика\n\n';
+    message += `📈 Всего запросов: ${requests?.length || 0}\n`;
+    message += `🔍 Поисков: ${searches?.length || 0}\n`;
+    message += `📥 Скачиваний: ${downloads?.length || 0}\n\n`;
+    
+    if (topCategory) {
+      const categoryNames: Record<string, string> = {
+        mod: '🔧 Моды',
+        shader: '✨ Шейдеры',
+        resourcepack: '🎨 Ресурспаки',
+      };
+      message += `❤️ Любимая категория: ${categoryNames[topCategory[0]] || topCategory[0]}\n`;
+    }
+
+    // Последние поиски
+    if (searches && searches.length > 0) {
+      message += '\n🔎 Последние поиски:\n';
+      searches.slice(-5).reverse().forEach((search: any) => {
+        message += `• ${search.query}\n`;
+      });
+    }
+
+    await ctx.reply(message, mainMenuKeyboard);
+  } catch (error) {
+    console.error('MyStats error:', error);
+    await ctx.reply('❌ Ошибка загрузки статистики');
+  }
 });
 
 // Главное меню
@@ -398,6 +460,11 @@ bot.action(/select_modrinth_(.+)_(.+)/, async (ctx) => {
     return ctx.editMessageText('😔 Версии не найдены.', mainMenuKeyboard);
   }
 
+  // Получаем slug проекта для ссылки
+  const search = searchResults.get(ctx.from?.id || 0);
+  const project = search?.results.find((r: any) => r.project_id === projectId);
+  const projectSlug = project?.slug;
+
   let message = '📋 Доступные версии:\n\n';
   versions.slice(0, 5).forEach((version, index) => {
     message += `${index + 1}. ${version.version_number}\n`;
@@ -405,7 +472,7 @@ bot.action(/select_modrinth_(.+)_(.+)/, async (ctx) => {
     message += `   ⚙️ ${version.loaders.join(', ')}\n\n`;
   });
 
-  await ctx.editMessageText(message, createVersionsKeyboard(versions, 'modrinth', projectId));
+  await ctx.editMessageText(message, createVersionsKeyboard(versions, 'modrinth', projectId, projectSlug));
 });
 
 // Скачивание файла
@@ -471,6 +538,72 @@ bot.action(/download_modrinth_(.+)_(.+)/, async (ctx) => {
 bot.catch((err, ctx) => {
   console.error('Bot error:', err);
   ctx.reply('❌ Произошла ошибка. Попробуй позже.', mainMenuKeyboard);
+});
+
+// Пересылка новостей из канала
+bot.on('channel_post', async (ctx) => {
+  if (ctx.channelPost.chat.id === config.newsChannelId) {
+    try {
+      // Получаем всех пользователей
+      const { data: users } = await supabase
+        .from('user_requests')
+        .select('user_id')
+        .limit(1000);
+
+      const uniqueUsers = [...new Set(users?.map((u: any) => u.user_id) || [])];
+
+      // Отправляем новость всем пользователям
+      for (const userId of uniqueUsers) {
+        try {
+          await ctx.telegram.forwardMessage(userId, config.newsChannelId, ctx.channelPost.message_id);
+          await new Promise(resolve => setTimeout(resolve, 50)); // Задержка чтобы не словить лимит
+        } catch (error) {
+          console.error(`Failed to send to ${userId}:`, error);
+        }
+      }
+
+      console.log(`News sent to ${uniqueUsers.length} users`);
+    } catch (error) {
+      console.error('News broadcast error:', error);
+    }
+  }
+});
+
+// Inline режим - поиск модов прямо из чата
+bot.on('inline_query', async (ctx) => {
+  const query = ctx.inlineQuery.query;
+  
+  if (!query || query.length < 2) {
+    return ctx.answerInlineQuery([]);
+  }
+
+  try {
+    const results = await searchModrinth(query, 'mod');
+    
+    const inlineResults = results.slice(0, 10).map((mod) => ({
+      type: 'article' as const,
+      id: mod.project_id,
+      title: mod.title,
+      description: `📥 ${mod.downloads} загрузок | ${mod.description.substring(0, 100)}...`,
+      thumb_url: mod.icon_url,
+      input_message_content: {
+        message_text: 
+          `🔧 ${mod.title}\n\n` +
+          `📝 ${mod.description}\n\n` +
+          `📥 Загрузок: ${mod.downloads}\n` +
+          `🔗 Ссылка: https://modrinth.com/mod/${mod.slug}\n\n` +
+          `🤖 Найдено через @${ctx.botInfo.username}`,
+      },
+    }));
+
+    await ctx.answerInlineQuery(inlineResults, {
+      cache_time: 300,
+      is_personal: false,
+    });
+  } catch (error) {
+    console.error('Inline query error:', error);
+    await ctx.answerInlineQuery([]);
+  }
 });
 
 // Пагинация результатов

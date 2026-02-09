@@ -143,7 +143,7 @@ export function createResultsKeyboard(results: any[], source: 'modrinth' | 'curs
   return Markup.inlineKeyboard(buttons);
 }
 
-export function createVersionsKeyboard(versions: any[], source: 'modrinth' | 'curseforge', projectId: string) {
+export function createVersionsKeyboard(versions: any[], source: 'modrinth' | 'curseforge', projectId: string, projectSlug?: string) {
   const buttons = versions.slice(0, 5).map((version, index) => {
     if (source === 'modrinth') {
       const gameVer = version.game_versions[0] || 'N/A';
@@ -160,6 +160,14 @@ export function createVersionsKeyboard(versions: any[], source: 'modrinth' | 'cu
       )];
     }
   });
+
+  // Кнопка "Поделиться"
+  if (source === 'modrinth' && projectSlug) {
+    buttons.push([Markup.button.url(
+      '🔗 Поделиться',
+      `https://modrinth.com/mod/${projectSlug}`
+    )]);
+  }
 
   buttons.push([Markup.button.callback('« Назад', 'main_menu')]);
   return Markup.inlineKeyboard(buttons);

@@ -17,9 +17,30 @@ interface UserState {
   gameVersion?: string;
   loader?: string;
   results?: any[];
+  timestamp: number;
 }
 
 const userStates = new Map<number, UserState>();
+
+// Автоочистка старых состояний (старше 1 часа)
+setInterval(() => {
+  const oneHourAgo = Date.now() - 60 * 60 * 1000;
+  for (const [userId, state] of userStates.entries()) {
+    if (state.timestamp < oneHourAgo) {
+      userStates.delete(userId);
+    }
+  }
+  
+  // Логирование размера Map
+  if (userStates.size > 0) {
+    console.log(`Active user states: ${userStates.size}`);
+  }
+}, 10 * 60 * 1000); // Каждые 10 минут
+
+// Функция для установки состояния с timestamp
+function setUserState(userId: number, state: Omit<UserState, 'timestamp'>) {
+  userStates.set(userId, { ...state, timestamp: Date.now() });
+}
 
 // Команда /start
 bot.command('start', async (ctx) => {
@@ -47,7 +68,7 @@ bot.action('search_mod', async (ctx) => {
     return ctx.answerCbQuery('⏳ Слишком много запросов. Подожди минуту.');
   }
 
-  userStates.set(userId, { action: 'select_version', projectType: 'mod' });
+  setUserState(userId, { action: 'select_version', projectType: 'mod' });
   await ctx.editMessageText('🎮 Выбери версию Minecraft:', gameVersionKeyboard);
   await logRequest(userId, ctx.from?.username, 'search_mod');
 });
@@ -61,7 +82,7 @@ bot.action('search_shader', async (ctx) => {
     return ctx.answerCbQuery('⏳ Слишком много запросов. Подожди минуту.');
   }
 
-  userStates.set(userId, { action: 'select_version', projectType: 'shader' });
+  setUserState(userId, { action: 'select_version', projectType: 'shader' });
   await ctx.editMessageText('🎮 Выбери версию Minecraft:', gameVersionKeyboard);
   await logRequest(userId, ctx.from?.username, 'search_shader');
 });
@@ -75,7 +96,7 @@ bot.action('search_resourcepack', async (ctx) => {
     return ctx.answerCbQuery('⏳ Слишком много запросов. Подожди минуту.');
   }
 
-  userStates.set(userId, { action: 'select_version', projectType: 'resourcepack' });
+  setUserState(userId, { action: 'select_version', projectType: 'resourcepack' });
   await ctx.editMessageText('🎮 Выбери версию Minecraft:', gameVersionKeyboard);
   await logRequest(userId, ctx.from?.username, 'search_resourcepack');
 });
@@ -89,7 +110,7 @@ bot.action('search_custom', async (ctx) => {
     return ctx.answerCbQuery('⏳ Слишком много запросов. Подожди минуту.');
   }
 
-  userStates.set(userId, { action: 'search_custom' });
+  setUserState(userId, { action: 'search_custom' });
   await ctx.editMessageText('🔍 Введи запрос для поиска:');
   await logRequest(userId, ctx.from?.username, 'search_custom');
 });
@@ -106,7 +127,7 @@ bot.action(/version_(.+)/, async (ctx) => {
 
   state.gameVersion = version === 'any' ? undefined : version;
   state.action = 'select_loader';
-  userStates.set(userId, state);
+  setUserState(userId, state);
 
   await ctx.editMessageText('⚙️ Выбери загрузчик модов:', loaderKeyboard);
 });
@@ -123,7 +144,7 @@ bot.action(/loader_(.+)/, async (ctx) => {
 
   state.loader = loader === 'any' ? undefined : loader;
   state.action = 'search_input';
-  userStates.set(userId, state);
+  setUserState(userId, state);
 
   const typeText = state.projectType === 'mod' ? 'мода' : 
                    state.projectType === 'shader' ? 'шейдера' : 'ресурспака';
@@ -198,7 +219,7 @@ bot.on('text', async (ctx) => {
   });
 
   state.results = results;
-  userStates.set(userId, state);
+  setUserState(userId, state);
 
   await ctx.reply(message, createResultsKeyboard(results, 'modrinth', projectType));
   userStates.delete(userId);

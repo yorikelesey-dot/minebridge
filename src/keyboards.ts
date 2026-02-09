@@ -11,6 +11,44 @@ export const mainMenuKeyboard = Markup.inlineKeyboard([
   ],
 ]);
 
+export const gameVersionKeyboard = Markup.inlineKeyboard([
+  [
+    Markup.button.callback('1.21.1', 'version_1.21.1'),
+    Markup.button.callback('1.21', 'version_1.21'),
+  ],
+  [
+    Markup.button.callback('1.20.6', 'version_1.20.6'),
+    Markup.button.callback('1.20.4', 'version_1.20.4'),
+  ],
+  [
+    Markup.button.callback('1.20.1', 'version_1.20.1'),
+    Markup.button.callback('1.19.4', 'version_1.19.4'),
+  ],
+  [
+    Markup.button.callback('1.18.2', 'version_1.18.2'),
+    Markup.button.callback('1.16.5', 'version_1.16.5'),
+  ],
+  [
+    Markup.button.callback('🔙 Любая версия', 'version_any'),
+    Markup.button.callback('« Назад', 'main_menu'),
+  ],
+]);
+
+export const loaderKeyboard = Markup.inlineKeyboard([
+  [
+    Markup.button.callback('🔨 Forge', 'loader_forge'),
+    Markup.button.callback('🧵 Fabric', 'loader_fabric'),
+  ],
+  [
+    Markup.button.callback('🪡 Quilt', 'loader_quilt'),
+    Markup.button.callback('⚒️ NeoForge', 'loader_neoforge'),
+  ],
+  [
+    Markup.button.callback('🔙 Любой загрузчик', 'loader_any'),
+    Markup.button.callback('« Назад', 'main_menu'),
+  ],
+]);
+
 export function createResultsKeyboard(results: any[], source: 'modrinth' | 'curseforge', type: string) {
   const buttons = results.slice(0, 5).map((item, index) => {
     const title = source === 'modrinth' ? item.title : item.name;

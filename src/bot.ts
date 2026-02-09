@@ -1,6 +1,6 @@
 import { Telegraf, Context } from 'telegraf';
 import { config } from './config';
-import { mainMenuKeyboard, createResultsKeyboard, createVersionsKeyboard } from './keyboards';
+import { mainMenuKeyboard, createResultsKeyboard, createVersionsKeyboard, gameVersionKeyboard, loaderKeyboard } from './keyboards';
 import { searchModrinth, getModrinthVersions } from './api/modrinth';
 import { searchCurseForge, getCurseForgeFiles } from './api/curseforge';
 import { checkRateLimit, logRequest, saveSearchHistory } from './database';
@@ -9,7 +9,17 @@ import { downloadFile, formatFileSize, canSendDirectly } from './utils/download'
 export const bot = new Telegraf(config.telegramToken);
 
 // Хранилище состояний пользователей
-const userStates = new Map<number, { action: string; data?: any }>();
+interface UserState {
+  action: string;
+  data?: any;
+  projectId?: string;
+  projectType?: string;
+  gameVersion?: string;
+  loader?: string;
+  results?: any[];
+}
+
+const userStates = new Map<number, UserState>();
 
 // Команда /start
 bot.command('start', async (ctx) => {
@@ -37,8 +47,8 @@ bot.action('search_mod', async (ctx) => {
     return ctx.answerCbQuery('⏳ Слишком много запросов. Подожди минуту.');
   }
 
-  userStates.set(userId, { action: 'search_mod' });
-  await ctx.editMessageText('🔧 Введи название мода для поиска:');
+  userStates.set(userId, { action: 'select_version', projectType: 'mod' });
+  await ctx.editMessageText('🎮 Выбери версию Minecraft:', gameVersionKeyboard);
   await logRequest(userId, ctx.from?.username, 'search_mod');
 });
 
@@ -51,8 +61,8 @@ bot.action('search_shader', async (ctx) => {
     return ctx.answerCbQuery('⏳ Слишком много запросов. Подожди минуту.');
   }
 
-  userStates.set(userId, { action: 'search_shader' });
-  await ctx.editMessageText('✨ Введи название шейдера для поиска:');
+  userStates.set(userId, { action: 'select_version', projectType: 'shader' });
+  await ctx.editMessageText('🎮 Выбери версию Minecraft:', gameVersionKeyboard);
   await logRequest(userId, ctx.from?.username, 'search_shader');
 });
 
@@ -65,8 +75,8 @@ bot.action('search_resourcepack', async (ctx) => {
     return ctx.answerCbQuery('⏳ Слишком много запросов. Подожди минуту.');
   }
 
-  userStates.set(userId, { action: 'search_resourcepack' });
-  await ctx.editMessageText('🎨 Введи название ресурспака для поиска:');
+  userStates.set(userId, { action: 'select_version', projectType: 'resourcepack' });
+  await ctx.editMessageText('🎮 Выбери версию Minecraft:', gameVersionKeyboard);
   await logRequest(userId, ctx.from?.username, 'search_resourcepack');
 });
 
@@ -84,6 +94,47 @@ bot.action('search_custom', async (ctx) => {
   await logRequest(userId, ctx.from?.username, 'search_custom');
 });
 
+// Выбор версии игры
+bot.action(/version_(.+)/, async (ctx) => {
+  const userId = ctx.from?.id;
+  if (!userId) return;
+
+  const version = ctx.match[1];
+  const state = userStates.get(userId);
+  
+  if (!state) return;
+
+  state.gameVersion = version === 'any' ? undefined : version;
+  state.action = 'select_loader';
+  userStates.set(userId, state);
+
+  await ctx.editMessageText('⚙️ Выбери загрузчик модов:', loaderKeyboard);
+});
+
+// Выбор загрузчика
+bot.action(/loader_(.+)/, async (ctx) => {
+  const userId = ctx.from?.id;
+  if (!userId) return;
+
+  const loader = ctx.match[1];
+  const state = userStates.get(userId);
+  
+  if (!state) return;
+
+  state.loader = loader === 'any' ? undefined : loader;
+  state.action = 'search_input';
+  userStates.set(userId, state);
+
+  const typeText = state.projectType === 'mod' ? 'мода' : 
+                   state.projectType === 'shader' ? 'шейдера' : 'ресурспака';
+  
+  let filterText = '';
+  if (state.gameVersion) filterText += `\n🎮 Версия: ${state.gameVersion}`;
+  if (state.loader) filterText += `\n⚙️ Загрузчик: ${state.loader}`;
+
+  await ctx.editMessageText(`🔍 Введи название ${typeText} для поиска:${filterText}`);
+});
+
 // Обработка текстовых сообщений (поиск)
 bot.on('text', async (ctx) => {
   const userId = ctx.from?.id;
@@ -97,26 +148,57 @@ bot.on('text', async (ctx) => {
   await ctx.reply('🔎 Ищу...');
 
   let projectType = 'mod';
-  if (state.action === 'search_shader') projectType = 'shader';
-  if (state.action === 'search_resourcepack') projectType = 'resourcepack';
+  if (state.projectType === 'shader') projectType = 'shader';
+  if (state.projectType === 'resourcepack') projectType = 'resourcepack';
 
   // Поиск в Modrinth
-  const results = await searchModrinth(query, projectType);
+  let results = await searchModrinth(query, projectType);
+
+  // Фильтрация по версии и загрузчику
+  if (state.gameVersion || state.loader) {
+    const versions = await Promise.all(
+      results.map(async (item) => {
+        const vers = await getModrinthVersions(item.project_id);
+        return { item, versions: vers };
+      })
+    );
+
+    results = versions
+      .filter(({ versions: vers }) => {
+        return vers.some((v) => {
+          const versionMatch = !state.gameVersion || v.game_versions.includes(state.gameVersion);
+          const loaderMatch = !state.loader || v.loaders.map(l => l.toLowerCase()).includes(state.loader.toLowerCase());
+          return versionMatch && loaderMatch;
+        });
+      })
+      .map(({ item }) => item);
+  }
 
   if (results.length === 0) {
-    await ctx.reply('😔 Ничего не найдено. Попробуй другой запрос.', mainMenuKeyboard);
+    let filterInfo = '';
+    if (state.gameVersion) filterInfo += `\n🎮 Версия: ${state.gameVersion}`;
+    if (state.loader) filterInfo += `\n⚙️ Загрузчик: ${state.loader}`;
+    
+    await ctx.reply(`😔 Ничего не найдено.${filterInfo}\n\nПопробуй другой запрос или измени фильтры.`, mainMenuKeyboard);
     userStates.delete(userId);
     return;
   }
 
   await saveSearchHistory(userId, query, results.length);
 
-  let message = `📦 Найдено результатов: ${results.length}\n\n`;
+  let message = `📦 Найдено результатов: ${results.length}\n`;
+  if (state.gameVersion) message += `🎮 Версия: ${state.gameVersion}\n`;
+  if (state.loader) message += `⚙️ Загрузчик: ${state.loader}\n`;
+  message += '\n';
+  
   results.slice(0, 5).forEach((item, index) => {
     message += `${index + 1}. ${item.title}\n`;
     message += `   📥 ${item.downloads} загрузок\n`;
     message += `   ${item.description.substring(0, 60)}...\n\n`;
   });
+
+  state.results = results;
+  userStates.set(userId, state);
 
   await ctx.reply(message, createResultsKeyboard(results, 'modrinth', projectType));
   userStates.delete(userId);

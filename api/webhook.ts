@@ -8,13 +8,21 @@ export default async (req: VercelRequest, res: VercelResponse) => {
       await bot.handleUpdate(req.body);
       res.status(200).json({ ok: true });
     } else if (req.method === 'GET') {
-      // Установка вебхука
+      // Установка вебхука с allowed_updates для получения channel_post
       const webhookUrl = `https://${config.webhookDomain}/api/webhook`;
-      await bot.telegram.setWebhook(webhookUrl);
+      await bot.telegram.setWebhook(webhookUrl, {
+        allowed_updates: [
+          'message',
+          'callback_query',
+          'inline_query',
+          'channel_post', // Важно! Для получения постов из канала
+        ],
+      });
       res.status(200).json({ 
         ok: true, 
-        message: 'Webhook set successfully',
-        url: webhookUrl 
+        message: 'Webhook set successfully with channel_post updates',
+        url: webhookUrl,
+        allowed_updates: ['message', 'callback_query', 'inline_query', 'channel_post']
       });
     } else {
       res.status(405).json({ error: 'Method not allowed' });

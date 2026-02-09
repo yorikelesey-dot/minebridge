@@ -1,9 +1,9 @@
 import { Telegraf, Context } from 'telegraf';
 import { config } from './config';
-import { mainMenuKeyboard, createResultsKeyboard, createVersionsKeyboard, gameVersionKeyboard, loaderKeyboard } from './keyboards';
+import { mainMenuKeyboard, adminMenuKeyboard, createResultsKeyboard, createVersionsKeyboard, gameVersionKeyboard, loaderKeyboard, statsMenuKeyboard } from './keyboards';
 import { searchModrinth, getModrinthVersions } from './api/modrinth';
 import { searchCurseForge, getCurseForgeFiles } from './api/curseforge';
-import { checkRateLimit, logRequest, saveSearchHistory } from './database';
+import { checkRateLimit, logRequest, saveSearchHistory, getStats, getTopUsers, getPopularSearches, getActivityByHour } from './database';
 import { downloadFile, formatFileSize, canSendDirectly } from './utils/download';
 
 export const bot = new Telegraf(config.telegramToken);
@@ -63,18 +63,24 @@ function setUserState(userId: number, state: Omit<UserState, 'timestamp'>) {
 
 // Команда /start
 bot.command('start', async (ctx) => {
+  const isAdmin = ctx.from?.id === config.adminUserId;
+  const keyboard = isAdmin ? adminMenuKeyboard : mainMenuKeyboard;
+  
   await ctx.reply(
     '👋 Привет! Я бот для поиска и скачивания модов Minecraft.\n\n' +
     'Выбери категорию или используй поиск:',
-    mainMenuKeyboard
+    keyboard
   );
 });
 
 // Главное меню
 bot.action('main_menu', async (ctx) => {
+  const isAdmin = ctx.from?.id === config.adminUserId;
+  const keyboard = isAdmin ? adminMenuKeyboard : mainMenuKeyboard;
+  
   await ctx.editMessageText(
     '🏠 Главное меню\n\nВыбери категорию или используй поиск:',
-    mainMenuKeyboard
+    keyboard
   );
 });
 
@@ -416,4 +422,125 @@ bot.action(/page_modrinth_(.+)_(\d+)/, async (ctx) => {
 // Заглушка для кнопки с номером страницы
 bot.action('noop', async (ctx) => {
   await ctx.answerCbQuery();
+});
+
+// Админ-панель: Статистика
+bot.action('admin_stats', async (ctx) => {
+  const userId = ctx.from?.id;
+  if (userId !== config.adminUserId) {
+    return ctx.answerCbQuery('❌ Доступ запрещён');
+  }
+
+  await ctx.editMessageText(
+    '📊 Статистика бота\n\nВыбери раздел:',
+    statsMenuKeyboard
+  );
+});
+
+// Статистика: Пользователи
+bot.action('stats_users', async (ctx) => {
+  const userId = ctx.from?.id;
+  if (userId !== config.adminUserId) {
+    return ctx.answerCbQuery('❌ Доступ запрещён');
+  }
+
+  await ctx.answerCbQuery('⏳ Загружаю...');
+
+  const stats = await getStats();
+  const topUsers = await getTopUsers(10);
+
+  if (!stats) {
+    return ctx.editMessageText('❌ Ошибка загрузки статистики', statsMenuKeyboard);
+  }
+
+  let message = '👥 Статистика пользователей\n\n';
+  message += `📊 Всего пользователей: ${stats.totalUsers}\n`;
+  message += `🔥 Активных за 24ч: ${stats.activeUsersToday}\n`;
+  message += `📈 Всего запросов: ${stats.totalRequests}\n`;
+  message += `📅 Запросов за 24ч: ${stats.requestsToday}\n\n`;
+  
+  message += '🏆 Топ-10 пользователей (за неделю):\n\n';
+  topUsers.forEach((user, index) => {
+    const username = user.username ? `@${user.username}` : `ID: ${user.userId}`;
+    message += `${index + 1}. ${username} - ${user.count} запросов\n`;
+  });
+
+  await ctx.editMessageText(message, statsMenuKeyboard);
+});
+
+// Статистика: Поиски
+bot.action('stats_searches', async (ctx) => {
+  const userId = ctx.from?.id;
+  if (userId !== config.adminUserId) {
+    return ctx.answerCbQuery('❌ Доступ запрещён');
+  }
+
+  await ctx.answerCbQuery('⏳ Загружаю...');
+
+  const stats = await getStats();
+  const popularSearches = await getPopularSearches(15);
+
+  if (!stats) {
+    return ctx.editMessageText('❌ Ошибка загрузки статистики', statsMenuKeyboard);
+  }
+
+  let message = '🔍 Статистика поисков\n\n';
+  message += `📊 Всего поисков: ${stats.totalSearches}\n`;
+  message += `📅 Поисков за 24ч: ${stats.searchesToday}\n\n`;
+  
+  message += '🔥 Популярные запросы (за неделю):\n\n';
+  popularSearches.forEach((search, index) => {
+    message += `${index + 1}. "${search.query}" - ${search.count}x\n`;
+  });
+
+  await ctx.editMessageText(message, statsMenuKeyboard);
+});
+
+// Статистика: Активность
+bot.action('stats_activity', async (ctx) => {
+  const userId = ctx.from?.id;
+  if (userId !== config.adminUserId) {
+    return ctx.answerCbQuery('❌ Доступ запрещён');
+  }
+
+  await ctx.answerCbQuery('⏳ Загружаю...');
+
+  const hourlyActivity = await getActivityByHour();
+  const stats = await getStats();
+
+  if (!stats) {
+    return ctx.editMessageText('❌ Ошибка загрузки статистики', statsMenuKeyboard);
+  }
+
+  let message = '📈 Активность за 24 часа\n\n';
+  
+  // График активности по часам (UTC)
+  const maxActivity = Math.max(...hourlyActivity);
+  hourlyActivity.forEach((count, hour) => {
+    const bars = Math.round((count / maxActivity) * 10);
+    const graph = '█'.repeat(bars) + '░'.repeat(10 - bars);
+    message += `${hour.toString().padStart(2, '0')}:00 ${graph} ${count}\n`;
+  });
+
+  message += `\n📊 Всего запросов: ${stats.requestsToday}`;
+
+  await ctx.editMessageText(message, statsMenuKeyboard);
+});
+
+// Статистика: Скачивания (заглушка)
+bot.action('stats_downloads', async (ctx) => {
+  const userId = ctx.from?.id;
+  if (userId !== config.adminUserId) {
+    return ctx.answerCbQuery('❌ Доступ запрещён');
+  }
+
+  await ctx.editMessageText(
+    '📥 Статистика скачиваний\n\n' +
+    '🚧 В разработке...\n\n' +
+    'Скоро здесь будет:\n' +
+    '• Количество скачиваний\n' +
+    '• Популярные моды\n' +
+    '• Статистика по размерам файлов',
+    statsMenuKeyboard
+  );
 });

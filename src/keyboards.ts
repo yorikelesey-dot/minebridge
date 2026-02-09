@@ -11,6 +11,34 @@ export const mainMenuKeyboard = Markup.inlineKeyboard([
   ],
 ]);
 
+export const adminMenuKeyboard = Markup.inlineKeyboard([
+  [
+    Markup.button.callback('🔧 Моды', 'search_mod'),
+    Markup.button.callback('✨ Шейдеры', 'search_shader'),
+  ],
+  [
+    Markup.button.callback('🎨 Ресурспаки', 'search_resourcepack'),
+    Markup.button.callback('🔍 Поиск', 'search_custom'),
+  ],
+  [
+    Markup.button.callback('📊 Статистика', 'admin_stats'),
+  ],
+]);
+
+export const statsMenuKeyboard = Markup.inlineKeyboard([
+  [
+    Markup.button.callback('👥 Пользователи', 'stats_users'),
+    Markup.button.callback('🔍 Поиски', 'stats_searches'),
+  ],
+  [
+    Markup.button.callback('📥 Скачивания', 'stats_downloads'),
+    Markup.button.callback('📈 Активность', 'stats_activity'),
+  ],
+  [
+    Markup.button.callback('« Назад', 'main_menu'),
+  ],
+]);
+
 export const gameVersionKeyboard = Markup.inlineKeyboard([
   [
     Markup.button.callback('1.21.4', 'version_1.21.4'),

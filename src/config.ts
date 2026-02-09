@@ -11,4 +11,5 @@ export const config = {
   maxFileSize: 50 * 1024 * 1024, // 50 MB
   rateLimitRequests: 3,
   rateLimitWindow: 60000, // 1 minute
+  adminUserId: 7839251308, // ID администратора
 };

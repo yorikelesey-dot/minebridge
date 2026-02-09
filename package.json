@@ -1,0 +1,43 @@
+{
+  "name": "minecraft-mods-telegram-bot",
+  "version": "1.0.0",
+  "description": "Telegram bot for searching and downloading Minecraft mods via Modrinth/CurseForge API",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "type-check": "tsc --noEmit",
+    "vercel-build": "tsc"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "minecraft",
+    "mods",
+    "modrinth",
+    "curseforge",
+    "vercel",
+    "serverless"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/minecraft-mods-bot"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "telegraf": "^4.16.3",
+    "@supabase/supabase-js": "^2.39.7",
+    "axios": "^1.6.7",
+    "dotenv": "^16.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.16",
+    "typescript": "^5.3.3",
+    "tsx": "^4.7.1"
+  }
+}

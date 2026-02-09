@@ -272,3 +272,70 @@ export async function getActivityByHour() {
     return new Array(24).fill(0);
   }
 }
+
+// Функции для пользовательских ботов
+export async function createUserBot(userId: number, botToken: string, botUsername: string, botName: string) {
+  try {
+    const { data, error } = await supabase
+      .from('user_bots')
+      .insert({
+        user_id: userId,
+        bot_token: botToken,
+        bot_username: botUsername,
+        bot_name: botName,
+        is_active: true,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Create user bot error:', error);
+    return null;
+  }
+}
+
+export async function getUserBot(userId: number) {
+  try {
+    const { data, error } = await supabase
+      .from('user_bots')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error; // PGRST116 = not found
+    return data;
+  } catch (error) {
+    console.error('Get user bot error:', error);
+    return null;
+  }
+}
+
+export async function deleteUserBot(userId: number) {
+  try {
+    const { error } = await supabase
+      .from('user_bots')
+      .delete()
+      .eq('user_id', userId);
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Delete user bot error:', error);
+    return false;
+  }
+}
+
+export async function updateUserBotActivity(userId: number) {
+  try {
+    const { error } = await supabase
+      .from('user_bots')
+      .update({ last_active: new Date().toISOString() })
+      .eq('user_id', userId);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Update user bot activity error:', error);
+  }
+}

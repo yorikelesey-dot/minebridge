@@ -12,7 +12,7 @@ export const permanentKeyboardUser = Markup.keyboard([
   ['🏠 Главное меню', '📈 Моя статистика'],
   ['🔧 Моды', '✨ Шейдеры'],
   ['🎨 Ресурспаки', '🔍 Поиск'],
-  ['📢 Канал'],
+  ['📢 Канал', '🤖 Создать бота'],
 ]).resize();
 
 export const mainMenuKeyboard = Markup.inlineKeyboard([
@@ -23,6 +23,9 @@ export const mainMenuKeyboard = Markup.inlineKeyboard([
   [
     Markup.button.callback('🎨 Ресурспаки', 'search_resourcepack'),
     Markup.button.callback('🔍 Поиск', 'search_custom'),
+  ],
+  [
+    Markup.button.callback('👥 О авторах', 'about_authors'),
   ],
 ]);
 
@@ -37,6 +40,7 @@ export const adminMenuKeyboard = Markup.inlineKeyboard([
   ],
   [
     Markup.button.callback('📊 Статистика', 'admin_stats'),
+    Markup.button.callback('👥 О авторах', 'about_authors'),
   ],
 ]);
 

@@ -163,12 +163,12 @@ export function createVersionsKeyboard(versions: any[], source: 'modrinth' | 'cu
     }
   });
 
-  // Кнопка "Поделиться"
+  // Кнопка "Поделиться" - отдельный массив для url кнопки
   if (source === 'modrinth' && projectSlug) {
     buttons.push([Markup.button.url(
       '🔗 Поделиться',
       `https://modrinth.com/mod/${projectSlug}`
-    )]);
+    )] as any);
   }
 
   buttons.push([Markup.button.callback('« Назад', 'main_menu')]);

@@ -77,8 +77,7 @@ bot.command('start', async (ctx) => {
     `📢 Подпишись на наш канал для новостей: ${config.newsChannelLink}`,
     { 
       ...keyboard, 
-      ...permKeyboard,
-      disable_web_page_preview: true 
+      ...permKeyboard
     }
   );
 });

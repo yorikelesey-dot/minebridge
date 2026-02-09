@@ -179,7 +179,77 @@ export async function getPopularSearches(limit: number = 10) {
   }
 }
 
-// Активность по часам
+// Логирование скачивания
+export async function logDownload(userId: number, projectName: string, projectId: string, fileSize: number, source: string) {
+  const { error } = await supabase
+    .from('download_stats')
+    .insert({
+      user_id: userId,
+      project_name: projectName,
+      project_id: projectId,
+      file_size: fileSize,
+      source,
+      timestamp: new Date().toISOString(),
+    });
+
+  if (error) {
+    console.error('Log download error:', error);
+  }
+}
+
+// Статистика скачиваний
+export async function getDownloadStats() {
+  try {
+    // Общее количество скачиваний
+    const { count: totalDownloads } = await supabase
+      .from('download_stats')
+      .select('*', { count: 'exact', head: true });
+
+    // Скачивания за 24 часа
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count: downloadsToday } = await supabase
+      .from('download_stats')
+      .select('*', { count: 'exact', head: true })
+      .gte('timestamp', oneDayAgo);
+
+    // Популярные моды за неделю
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: recentDownloads } = await supabase
+      .from('download_stats')
+      .select('project_name, project_id')
+      .gte('timestamp', oneWeekAgo);
+
+    const modCounts = new Map<string, { name: string; count: number }>();
+    recentDownloads?.forEach((dl: any) => {
+      const current = modCounts.get(dl.project_id) || { name: dl.project_name, count: 0 };
+      current.count++;
+      modCounts.set(dl.project_id, current);
+    });
+
+    const popularMods = Array.from(modCounts.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    // Средний размер файла
+    const { data: allDownloads } = await supabase
+      .from('download_stats')
+      .select('file_size');
+
+    const totalSize = allDownloads?.reduce((sum: number, dl: any) => sum + dl.file_size, 0) || 0;
+    const avgSize = allDownloads?.length ? totalSize / allDownloads.length : 0;
+
+    return {
+      totalDownloads: totalDownloads || 0,
+      downloadsToday: downloadsToday || 0,
+      popularMods,
+      avgSize,
+      totalSize,
+    };
+  } catch (error) {
+    console.error('Get download stats error:', error);
+    return null;
+  }
+}
 export async function getActivityByHour() {
   try {
     const { data, error } = await supabase

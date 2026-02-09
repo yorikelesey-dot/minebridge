@@ -3,7 +3,7 @@ import { config } from './config';
 import { mainMenuKeyboard, adminMenuKeyboard, createResultsKeyboard, createVersionsKeyboard, gameVersionKeyboard, loaderKeyboard, statsMenuKeyboard, permanentKeyboard, permanentKeyboardUser } from './keyboards';
 import { searchModrinth, getModrinthVersions } from './api/modrinth';
 import { searchCurseForge, getCurseForgeFiles } from './api/curseforge';
-import { checkRateLimit, logRequest, saveSearchHistory, getStats, getTopUsers, getPopularSearches, getActivityByHour } from './database';
+import { checkRateLimit, logRequest, saveSearchHistory, getStats, getTopUsers, getPopularSearches, getActivityByHour, logDownload, getDownloadStats } from './database';
 import { downloadFile, formatFileSize, canSendDirectly } from './utils/download';
 
 export const bot = new Telegraf(config.telegramToken);
@@ -425,6 +425,7 @@ bot.action(/download_modrinth_(.+)_(.+)/, async (ctx) => {
 
     const file = version.files[0];
     const fileSize = file.size;
+    const userId = ctx.from?.id;
 
     if (canSendDirectly(fileSize)) {
       await ctx.reply(`📥 Скачиваю файл (${formatFileSize(fileSize)})...`);
@@ -439,6 +440,11 @@ bot.action(/download_modrinth_(.+)_(.+)/, async (ctx) => {
             ...mainMenuKeyboard
           }
         );
+        
+        // Логирование скачивания
+        if (userId) {
+          await logDownload(userId, version.name, match[1], fileSize, 'modrinth');
+        }
       } else {
         await ctx.reply(`❌ Ошибка скачивания. Вот прямая ссылка:\n${file.url}`, mainMenuKeyboard);
       }
@@ -449,6 +455,11 @@ bot.action(/download_modrinth_(.+)_(.+)/, async (ctx) => {
         `⬇️ Прямая ссылка для скачивания:\n${file.url}`,
         mainMenuKeyboard
       );
+      
+      // Логирование скачивания (по ссылке)
+      if (userId) {
+        await logDownload(userId, version.name, match[1], fileSize, 'modrinth');
+      }
     }
   } catch (error) {
     console.error('Download error:', error);
@@ -522,26 +533,38 @@ bot.action('stats_users', async (ctx) => {
 
   await ctx.answerCbQuery('⏳ Загружаю...');
 
-  const stats = await getStats();
-  const topUsers = await getTopUsers(10);
+  try {
+    const stats = await getStats();
+    const topUsers = await getTopUsers(10);
 
-  if (!stats) {
-    return ctx.editMessageText('❌ Ошибка загрузки статистики', statsMenuKeyboard);
+    console.log('Stats:', stats);
+    console.log('Top users:', topUsers);
+
+    if (!stats) {
+      return ctx.editMessageText('❌ Ошибка загрузки статистики', statsMenuKeyboard);
+    }
+
+    let message = '👥 Статистика пользователей\n\n';
+    message += `📊 Всего пользователей: ${stats.totalUsers}\n`;
+    message += `🔥 Активных за 24ч: ${stats.activeUsersToday}\n`;
+    message += `📈 Всего запросов: ${stats.totalRequests}\n`;
+    message += `📅 Запросов за 24ч: ${stats.requestsToday}\n\n`;
+    
+    if (topUsers.length > 0) {
+      message += '🏆 Топ-10 пользователей (за неделю):\n\n';
+      topUsers.forEach((user, index) => {
+        const username = user.username ? `@${user.username}` : `ID: ${user.userId}`;
+        message += `${index + 1}. ${username} - ${user.count} запросов\n`;
+      });
+    } else {
+      message += '📭 Пока нет данных о пользователях';
+    }
+
+    await ctx.editMessageText(message, statsMenuKeyboard);
+  } catch (error) {
+    console.error('Stats error:', error);
+    await ctx.editMessageText('❌ Ошибка: ' + (error as Error).message, statsMenuKeyboard);
   }
-
-  let message = '👥 Статистика пользователей\n\n';
-  message += `📊 Всего пользователей: ${stats.totalUsers}\n`;
-  message += `🔥 Активных за 24ч: ${stats.activeUsersToday}\n`;
-  message += `📈 Всего запросов: ${stats.totalRequests}\n`;
-  message += `📅 Запросов за 24ч: ${stats.requestsToday}\n\n`;
-  
-  message += '🏆 Топ-10 пользователей (за неделю):\n\n';
-  topUsers.forEach((user, index) => {
-    const username = user.username ? `@${user.username}` : `ID: ${user.userId}`;
-    message += `${index + 1}. ${username} - ${user.count} запросов\n`;
-  });
-
-  await ctx.editMessageText(message, statsMenuKeyboard);
 });
 
 // Статистика: Поиски
@@ -603,20 +626,35 @@ bot.action('stats_activity', async (ctx) => {
   await ctx.editMessageText(message, statsMenuKeyboard);
 });
 
-// Статистика: Скачивания (заглушка)
+// Статистика: Скачивания
 bot.action('stats_downloads', async (ctx) => {
   const userId = ctx.from?.id;
   if (userId !== config.adminUserId) {
     return ctx.answerCbQuery('❌ Доступ запрещён');
   }
 
-  await ctx.editMessageText(
-    '📥 Статистика скачиваний\n\n' +
-    '🚧 В разработке...\n\n' +
-    'Скоро здесь будет:\n' +
-    '• Количество скачиваний\n' +
-    '• Популярные моды\n' +
-    '• Статистика по размерам файлов',
-    statsMenuKeyboard
-  );
+  await ctx.answerCbQuery('⏳ Загружаю...');
+
+  const downloadStats = await getDownloadStats();
+
+  if (!downloadStats) {
+    return ctx.editMessageText('❌ Ошибка загрузки статистики', statsMenuKeyboard);
+  }
+
+  let message = '📥 Статистика скачиваний\n\n';
+  message += `📊 Всего скачиваний: ${downloadStats.totalDownloads}\n`;
+  message += `📅 Скачиваний за 24ч: ${downloadStats.downloadsToday}\n`;
+  message += `📦 Средний размер: ${formatFileSize(downloadStats.avgSize)}\n`;
+  message += `💾 Всего передано: ${formatFileSize(downloadStats.totalSize)}\n\n`;
+  
+  if (downloadStats.popularMods.length > 0) {
+    message += '🔥 Популярные моды (за неделю):\n\n';
+    downloadStats.popularMods.forEach((mod, index) => {
+      message += `${index + 1}. ${mod.name} - ${mod.count}x\n`;
+    });
+  } else {
+    message += '📭 Пока нет скачиваний';
+  }
+
+  await ctx.editMessageText(message, statsMenuKeyboard);
 });

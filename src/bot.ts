@@ -79,10 +79,9 @@ bot.command('start', async (ctx) => {
     ],
     [
       Markup.button.callback('📢 Канал', 'open_channel'),
-      Markup.button.callback('🤖 Создать бота', 'create_bot_start'),
+      Markup.button.callback('📈 Моя статистика', 'my_stats'),
     ],
     [
-      Markup.button.callback('📈 Моя статистика', 'my_stats'),
       Markup.button.callback('👥 О авторах', 'about_authors'),
     ],
     ...(isAdmin ? [[Markup.button.callback('📊 Админ', 'admin_stats')]] : []),
@@ -135,8 +134,7 @@ bot.command('mybot', async (ctx) => {
 
   if (!userBot) {
     return ctx.reply(
-      '❌ У тебя нет бота.\n\n' +
-      'Создай своего бота с помощью кнопки "🤖 Создать бота"',
+      '❌ У тебя нет бота.',
       mainMenuKeyboard
     );
   }
@@ -329,58 +327,7 @@ bot.action('open_channel', async (ctx) => {
   );
 });
 
-// Кнопка "Создать бота"
-bot.action('create_bot_start', async (ctx) => {
-  const userId = ctx.from?.id;
-  if (!userId) return;
-
-  await ctx.answerCbQuery();
-
-  const existingBot = await getUserBot(userId);
-  
-  if (existingBot) {
-    await ctx.editMessageText(
-      `🤖 У тебя уже есть бот!\n\n` +
-      `Имя: ${existingBot.bot_name}\n` +
-      `Username: @${existingBot.bot_username}\n` +
-      `Статус: ${existingBot.is_active ? '✅ Активен' : '❌ Неактивен'}\n\n` +
-      `Хочешь удалить и создать нового?`,
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🤖 Открыть бота', url: `https://t.me/${existingBot.bot_username}` }],
-            [{ text: '🗑️ Удалить бота', callback_data: 'delete_my_bot' }],
-            [{ text: '« Назад', callback_data: 'main_menu' }]
-          ]
-        }
-      }
-    );
-    return;
-  }
-
-  setUserState(userId, { action: 'create_bot_token' });
-  
-  await ctx.editMessageText(
-    '🤖 Создание своего бота\n\n' +
-    '1️⃣ Открой @BotFather в Telegram\n' +
-    '2️⃣ Отправь команду /newbot\n' +
-    '3️⃣ Следуй инструкциям BotFather\n' +
-    '4️⃣ Скопируй токен бота\n' +
-    '5️⃣ Отправь токен мне\n\n' +
-    '⚠️ Токен выглядит так:\n' +
-    '`1234567890:ABCdefGHIjklMNOpqrsTUVwxyz`\n\n' +
-    '❗ Твой бот будет работать с нашим кодом и брендингом.\n' +
-    '❗ Максимум 1 бот на пользователя.',
-    { 
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '« Отмена', callback_data: 'main_menu' }]
-        ]
-      }
-    }
-  );
-});
+// Кнопка "Создать бота" - REMOVED
 
 // Кнопка "Моя статистика"
 bot.action('my_stats', async (ctx) => {
@@ -469,10 +416,9 @@ bot.hears('🏠 Главное меню', async (ctx) => {
     ],
     [
       Markup.button.callback('📢 Канал', 'open_channel'),
-      Markup.button.callback('🤖 Создать бота', 'create_bot_start'),
+      Markup.button.callback('📈 Моя статистика', 'my_stats'),
     ],
     [
-      Markup.button.callback('📈 Моя статистика', 'my_stats'),
       Markup.button.callback('👥 О авторах', 'about_authors'),
     ],
     ...(isAdmin ? [[Markup.button.callback('📊 Админ', 'admin_stats')]] : []),
@@ -501,10 +447,9 @@ bot.action('main_menu', async (ctx) => {
     ],
     [
       Markup.button.callback('📢 Канал', 'open_channel'),
-      Markup.button.callback('🤖 Создать бота', 'create_bot_start'),
+      Markup.button.callback('📈 Моя статистика', 'my_stats'),
     ],
     [
-      Markup.button.callback('📈 Моя статистика', 'my_stats'),
       Markup.button.callback('👥 О авторах', 'about_authors'),
     ],
     ...(isAdmin ? [[Markup.button.callback('📊 Админ', 'admin_stats')]] : []),
@@ -659,48 +604,7 @@ bot.hears('📢 Канал', async (ctx) => {
   );
 });
 
-bot.hears('🤖 Создать бота', async (ctx) => {
-  const userId = ctx.from?.id;
-  if (!userId) return;
-
-  // Проверяем есть ли уже бот
-  const existingBot = await getUserBot(userId);
-  
-  if (existingBot) {
-    await ctx.reply(
-      `🤖 У тебя уже есть бот!\n\n` +
-      `Имя: ${existingBot.bot_name}\n` +
-      `Username: @${existingBot.bot_username}\n` +
-      `Статус: ${existingBot.is_active ? '✅ Активен' : '❌ Неактивен'}\n\n` +
-      `Хочешь удалить и создать нового?`,
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🗑️ Удалить бота', callback_data: 'delete_my_bot' }],
-            [{ text: '« Назад', callback_data: 'main_menu' }]
-          ]
-        }
-      }
-    );
-    return;
-  }
-
-  setUserState(userId, { action: 'create_bot_token' });
-  
-  await ctx.reply(
-    '🤖 Создание своего бота\n\n' +
-    '1️⃣ Открой @BotFather в Telegram\n' +
-    '2️⃣ Отправь команду /newbot\n' +
-    '3️⃣ Следуй инструкциям BotFather\n' +
-    '4️⃣ Скопируй токен бота\n' +
-    '5️⃣ Отправь токен мне\n\n' +
-    '⚠️ Токен выглядит так:\n' +
-    '`1234567890:ABCdefGHIjklMNOpqrsTUVwxyz`\n\n' +
-    '❗ Твой бот будет работать с нашим кодом и брендингом.\n' +
-    '❗ Максимум 1 бот на пользователя.',
-    { parse_mode: 'Markdown' }
-  );
-});
+// bot.hears('🤖 Создать бота') - REMOVED
 
 // Обработка поиска модов
 bot.action('search_mod', async (ctx) => {
@@ -823,83 +727,7 @@ bot.on('text', async (ctx) => {
 
   const text = ctx.message.text;
 
-  // Обработка создания бота
-  if (state.action === 'create_bot_token') {
-    // Проверка формата токена
-    const tokenRegex = /^\d+:[A-Za-z0-9_-]+$/;
-    if (!tokenRegex.test(text)) {
-      return ctx.reply(
-        '❌ Неправильный формат токена!\n\n' +
-        'Токен должен выглядеть так:\n' +
-        '`1234567890:ABCdefGHIjklMNOpqrsTUVwxyz`\n\n' +
-        'Попробуй ещё раз или отправь /start для отмены.',
-        { parse_mode: 'Markdown' }
-      );
-    }
-
-    await ctx.reply('⏳ Проверяю токен и создаю бота...');
-
-    try {
-      // Проверяем токен через Telegram API
-      const axios = require('axios');
-      const botInfoResponse = await axios.get(`https://api.telegram.org/bot${text}/getMe`);
-      
-      if (!botInfoResponse.data.ok) {
-        return ctx.reply('❌ Неверный токен! Проверь и попробуй снова.');
-      }
-
-      const botInfo = botInfoResponse.data.result;
-      const botUsername = botInfo.username;
-      const botName = botInfo.first_name;
-
-      // Сохраняем в БД
-      const userBot = await createUserBot(userId, text, botUsername, botName);
-
-      if (!userBot) {
-        return ctx.reply('❌ Ошибка создания бота. Возможно у тебя уже есть бот.');
-      }
-
-      userStates.delete(userId);
-
-      await ctx.reply(
-        `✅ Бот успешно создан!\n\n` +
-        `🤖 Имя: ${botName}\n` +
-        `👤 Username: @${botUsername}\n\n` +
-        `📝 Что дальше:\n` +
-        `1. Найди @${botUsername} в Telegram\n` +
-        `2. Отправь /start\n` +
-        `3. Бот работает с нашим кодом!\n\n` +
-        `⚠️ Важно:\n` +
-        `• Описание и команды нельзя изменить\n` +
-        `• Бот содержит информацию об авторах\n` +
-        `• Максимум 1 бот на пользователя\n\n` +
-        `📊 Управление: /mybot`,
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '🤖 Открыть бота', url: `https://t.me/${botUsername}` }],
-              [{ text: '« Главное меню', callback_data: 'main_menu' }]
-            ]
-          }
-        }
-      );
-
-      // Логируем создание
-      await logRequest(userId, ctx.from?.username, 'create_bot');
-
-    } catch (error: any) {
-      console.error('Create bot error:', error);
-      await ctx.reply(
-        '❌ Ошибка при создании бота.\n\n' +
-        'Возможные причины:\n' +
-        '• Неверный токен\n' +
-        '• Токен уже используется\n' +
-        '• Проблемы с Telegram API\n\n' +
-        'Попробуй ещё раз или обратись к @elerisey'
-      );
-    }
-    return;
-  }
+  // Обработка создания бота - REMOVED
 
   // Обработка кастомного ввода версии
   if (state.action === 'input_version') {

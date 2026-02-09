@@ -13,6 +13,10 @@ export const mainMenuKeyboard = Markup.inlineKeyboard([
 
 export const gameVersionKeyboard = Markup.inlineKeyboard([
   [
+    Markup.button.callback('1.21.4', 'version_1.21.4'),
+    Markup.button.callback('1.21.3', 'version_1.21.3'),
+  ],
+  [
     Markup.button.callback('1.21.1', 'version_1.21.1'),
     Markup.button.callback('1.21', 'version_1.21'),
   ],
@@ -21,15 +25,26 @@ export const gameVersionKeyboard = Markup.inlineKeyboard([
     Markup.button.callback('1.20.4', 'version_1.20.4'),
   ],
   [
+    Markup.button.callback('1.20.2', 'version_1.20.2'),
     Markup.button.callback('1.20.1', 'version_1.20.1'),
+  ],
+  [
     Markup.button.callback('1.19.4', 'version_1.19.4'),
+    Markup.button.callback('1.19.2', 'version_1.19.2'),
   ],
   [
     Markup.button.callback('1.18.2', 'version_1.18.2'),
-    Markup.button.callback('1.16.5', 'version_1.16.5'),
+    Markup.button.callback('1.17.1', 'version_1.17.1'),
   ],
   [
-    Markup.button.callback('🔙 Любая версия', 'version_any'),
+    Markup.button.callback('1.16.5', 'version_1.16.5'),
+    Markup.button.callback('1.12.2', 'version_1.12.2'),
+  ],
+  [
+    Markup.button.callback('✏️ Ввести свою', 'version_custom'),
+    Markup.button.callback('🔙 Любая', 'version_any'),
+  ],
+  [
     Markup.button.callback('« Назад', 'main_menu'),
   ],
 ]);
@@ -44,7 +59,10 @@ export const loaderKeyboard = Markup.inlineKeyboard([
     Markup.button.callback('⚒️ NeoForge', 'loader_neoforge'),
   ],
   [
-    Markup.button.callback('🔙 Любой загрузчик', 'loader_any'),
+    Markup.button.callback('✏️ Ввести свой', 'loader_custom'),
+    Markup.button.callback('🔙 Любой', 'loader_any'),
+  ],
+  [
     Markup.button.callback('« Назад', 'main_menu'),
   ],
 ]);

@@ -125,6 +125,13 @@ bot.action(/version_(.+)/, async (ctx) => {
   
   if (!state) return;
 
+  if (version === 'custom') {
+    state.action = 'input_version';
+    setUserState(userId, state);
+    await ctx.editMessageText('✏️ Введи версию Minecraft (например: 1.20.1):');
+    return;
+  }
+
   state.gameVersion = version === 'any' ? undefined : version;
   state.action = 'select_loader';
   setUserState(userId, state);
@@ -141,6 +148,13 @@ bot.action(/loader_(.+)/, async (ctx) => {
   const state = userStates.get(userId);
   
   if (!state) return;
+
+  if (loader === 'custom') {
+    state.action = 'input_loader';
+    setUserState(userId, state);
+    await ctx.editMessageText('✏️ Введи название загрузчика (например: forge, fabric, quilt):');
+    return;
+  }
 
   state.loader = loader === 'any' ? undefined : loader;
   state.action = 'search_input';
@@ -164,7 +178,41 @@ bot.on('text', async (ctx) => {
   const state = userStates.get(userId);
   if (!state) return;
 
-  const query = ctx.message.text;
+  const text = ctx.message.text;
+
+  // Обработка кастомного ввода версии
+  if (state.action === 'input_version') {
+    state.gameVersion = text.trim();
+    state.action = 'select_loader';
+    setUserState(userId, state);
+    
+    await ctx.reply(`✅ Версия установлена: ${text}\n\n⚙️ Теперь выбери загрузчик:`, loaderKeyboard);
+    return;
+  }
+
+  // Обработка кастомного ввода загрузчика
+  if (state.action === 'input_loader') {
+    state.loader = text.trim().toLowerCase();
+    state.action = 'search_input';
+    setUserState(userId, state);
+    
+    const typeText = state.projectType === 'mod' ? 'мода' : 
+                     state.projectType === 'shader' ? 'шейдера' : 'ресурспака';
+    
+    let filterText = '';
+    if (state.gameVersion) filterText += `\n🎮 Версия: ${state.gameVersion}`;
+    if (state.loader) filterText += `\n⚙️ Загрузчик: ${state.loader}`;
+
+    await ctx.reply(`✅ Загрузчик установлен: ${text}\n\n🔍 Введи название ${typeText} для поиска:${filterText}`);
+    return;
+  }
+
+  // Обработка поиска
+  if (state.action !== 'search_input' && state.action !== 'search_custom') {
+    return;
+  }
+
+  const query = text;
   
   await ctx.reply('🔎 Ищу...');
 

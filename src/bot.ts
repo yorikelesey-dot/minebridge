@@ -70,6 +70,12 @@ bot.command('start', async (ctx) => {
   const keyboard = isAdmin ? adminMenuKeyboard : mainMenuKeyboard;
   const permKeyboard = isAdmin ? permanentKeyboard : permanentKeyboardUser;
   
+  // Сначала удаляем старую клавиатуру
+  await ctx.reply('🔄 Обновляю интерфейс...', {
+    reply_markup: { remove_keyboard: true }
+  });
+  
+  // Потом отправляем с новой клавиатурой
   await ctx.reply(
     '👋 Привет! Я бот для поиска и скачивания модов Minecraft.\n\n' +
     '🔍 Выбери категорию или используй поиск:\n' +

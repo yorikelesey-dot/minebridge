@@ -971,6 +971,12 @@ bot.catch((err, ctx) => {
 
 // Пересылка новостей из канала
 bot.on('channel_post', async (ctx) => {
+  console.log('📢 Received channel_post update:', {
+    chatId: ctx.channelPost.chat.id,
+    chatTitle: ctx.channelPost.chat.title,
+    messageId: ctx.channelPost.message_id
+  });
+  
   if (ctx.channelPost.chat.id === config.newsChannelId) {
     try {
       console.log('📢 New post from news channel, broadcasting to users...');

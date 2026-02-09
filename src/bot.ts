@@ -222,6 +222,66 @@ bot.hears('📊 Статистика', async (ctx) => {
   );
 });
 
+bot.hears('📈 Моя статистика', async (ctx) => {
+  const userId = ctx.from?.id;
+  if (!userId) return;
+
+  try {
+    // Получаем статистику пользователя
+    const { data: requests } = await supabase
+      .from('user_requests')
+      .select('*')
+      .eq('user_id', userId);
+
+    const { data: searches } = await supabase
+      .from('search_history')
+      .select('*')
+      .eq('user_id', userId);
+
+    const { data: downloads } = await supabase
+      .from('download_stats')
+      .select('*')
+      .eq('user_id', userId);
+
+    // Подсчёт категорий
+    const categories = new Map<string, number>();
+    requests?.forEach((req: any) => {
+      const type = req.request_type.replace('search_', '');
+      categories.set(type, (categories.get(type) || 0) + 1);
+    });
+
+    const topCategory = Array.from(categories.entries())
+      .sort((a, b) => b[1] - a[1])[0];
+
+    let message = '📈 Твоя статистика\n\n';
+    message += `📊 Всего запросов: ${requests?.length || 0}\n`;
+    message += `🔍 Поисков: ${searches?.length || 0}\n`;
+    message += `📥 Скачиваний: ${downloads?.length || 0}\n\n`;
+    
+    if (topCategory) {
+      const categoryNames: Record<string, string> = {
+        mod: '🔧 Моды',
+        shader: '✨ Шейдеры',
+        resourcepack: '🎨 Ресурспаки',
+      };
+      message += `❤️ Любимая категория: ${categoryNames[topCategory[0]] || topCategory[0]}\n`;
+    }
+
+    // Последние поиски
+    if (searches && searches.length > 0) {
+      message += '\n🔎 Последние поиски:\n';
+      searches.slice(-5).reverse().forEach((search: any) => {
+        message += `• ${search.query}\n`;
+      });
+    }
+
+    await ctx.reply(message);
+  } catch (error) {
+    console.error('MyStats error:', error);
+    await ctx.reply('❌ Ошибка загрузки статистики');
+  }
+});
+
 // Обработка поиска модов
 bot.action('search_mod', async (ctx) => {
   const userId = ctx.from?.id;

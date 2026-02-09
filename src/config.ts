@@ -13,4 +13,5 @@ export const config = {
   rateLimitWindow: 60000, // 1 minute
   adminUserId: 7839251308, // ID администратора
   newsChannelId: -1003753906519, // ID канала с новостями
+  newsChannelLink: 'https://t.me/minebridge', // Ссылка на канал
 };

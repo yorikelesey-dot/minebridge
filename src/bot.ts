@@ -70,8 +70,37 @@ bot.command('start', async (ctx) => {
   
   await ctx.reply(
     '👋 Привет! Я бот для поиска и скачивания модов Minecraft.\n\n' +
-    'Выбери категорию или используй поиск:',
-    { ...keyboard, ...permKeyboard }
+    '🔍 Выбери категорию или используй поиск:\n' +
+    '• 🔧 Моды\n' +
+    '• ✨ Шейдеры\n' +
+    '• 🎨 Ресурспаки\n\n' +
+    `📢 Подпишись на наш канал для новостей: ${config.newsChannelLink}`,
+    { 
+      ...keyboard, 
+      ...permKeyboard,
+      disable_web_page_preview: true 
+    }
+  );
+});
+
+// Команда /channel - ссылка на канал
+bot.command('channel', async (ctx) => {
+  await ctx.reply(
+    '📢 Наш новостной канал\n\n' +
+    'Здесь ты найдёшь:\n' +
+    '• 🆕 Новые моды и обновления\n' +
+    '• 📰 Новости Minecraft\n' +
+    '• 💡 Полезные советы\n' +
+    '• 🎮 Интересные сборки\n\n' +
+    `Подписывайся: ${config.newsChannelLink}`,
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📢 Подписаться на канал', url: config.newsChannelLink }],
+          [{ text: '« Главное меню', callback_data: 'main_menu' }]
+        ]
+      }
+    }
   );
 });
 
@@ -280,6 +309,25 @@ bot.hears('📈 Моя статистика', async (ctx) => {
     console.error('MyStats error:', error);
     await ctx.reply('❌ Ошибка загрузки статистики');
   }
+});
+
+bot.hears('📢 Канал', async (ctx) => {
+  await ctx.reply(
+    '📢 Наш новостной канал\n\n' +
+    'Здесь ты найдёшь:\n' +
+    '• 🆕 Новые моды и обновления\n' +
+    '• 📰 Новости Minecraft\n' +
+    '• 💡 Полезные советы\n' +
+    '• 🎮 Интересные сборки\n\n' +
+    `Подписывайся: ${config.newsChannelLink}`,
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📢 Подписаться на канал', url: config.newsChannelLink }]
+        ]
+      }
+    }
+  );
 });
 
 // Обработка поиска модов
@@ -604,25 +652,67 @@ bot.catch((err, ctx) => {
 bot.on('channel_post', async (ctx) => {
   if (ctx.channelPost.chat.id === config.newsChannelId) {
     try {
-      // Получаем всех пользователей
-      const { data: users } = await supabase
+      console.log('📢 New post from news channel, broadcasting to users...');
+      
+      // Получаем всех уникальных пользователей
+      const { data: users, error: usersError } = await supabase
         .from('user_requests')
         .select('user_id')
-        .limit(1000);
+        .order('timestamp', { ascending: false });
+
+      if (usersError) {
+        console.error('Error fetching users:', usersError);
+        return;
+      }
 
       const uniqueUsers = [...new Set(users?.map((u: any) => u.user_id) || [])];
+      console.log(`Found ${uniqueUsers.length} unique users`);
+
+      let successCount = 0;
+      let failCount = 0;
 
       // Отправляем новость всем пользователям
       for (const userId of uniqueUsers) {
         try {
+          // Пересылаем сообщение из канала
           await ctx.telegram.forwardMessage(userId, config.newsChannelId, ctx.channelPost.message_id);
-          await new Promise(resolve => setTimeout(resolve, 50)); // Задержка чтобы не словить лимит
-        } catch (error) {
-          console.error(`Failed to send to ${userId}:`, error);
+          
+          // Добавляем ссылку на канал под новостью
+          await ctx.telegram.sendMessage(
+            userId,
+            `📢 Больше новостей в нашем канале: ${config.newsChannelLink}`,
+            {
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '📢 Подписаться на канал', url: config.newsChannelLink }]
+                ]
+              }
+            }
+          );
+          
+          successCount++;
+          
+          // Задержка чтобы не словить rate limit от Telegram (30 сообщений в секунду)
+          await new Promise(resolve => setTimeout(resolve, 35));
+        } catch (error: any) {
+          failCount++;
+          // Логируем только если это не блокировка бота пользователем
+          if (error.response?.error_code !== 403) {
+            console.error(`Failed to send to ${userId}:`, error.response?.description || error.message);
+          }
         }
       }
 
-      console.log(`News sent to ${uniqueUsers.length} users`);
+      console.log(`✅ News broadcast completed: ${successCount} sent, ${failCount} failed`);
+      
+      // Логируем статистику рассылки
+      await supabase.from('user_requests').insert({
+        user_id: config.adminUserId,
+        username: 'system',
+        request_type: 'news_broadcast',
+        timestamp: new Date().toISOString(),
+      });
+      
     } catch (error) {
       console.error('News broadcast error:', error);
     }

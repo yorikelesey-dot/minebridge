@@ -64,6 +64,8 @@ function setUserState(userId: number, state: Omit<UserState, 'timestamp'>) {
 
 // Команда /start
 bot.command('start', async (ctx) => {
+  console.log('🔍 BOT VERSION: 2.0.0 - 10.02.2026 14:30');
+  
   const isAdmin = ctx.from?.id === config.adminUserId;
   const keyboard = isAdmin ? adminMenuKeyboard : mainMenuKeyboard;
   const permKeyboard = isAdmin ? permanentKeyboard : permanentKeyboardUser;
@@ -74,7 +76,8 @@ bot.command('start', async (ctx) => {
     '• 🔧 Моды\n' +
     '• ✨ Шейдеры\n' +
     '• 🎨 Ресурспаки\n\n' +
-    `📢 Подпишись на наш канал для новостей: ${config.newsChannelLink}`,
+    `📢 Подпишись на наш канал для новостей: ${config.newsChannelLink}\n\n` +
+    `🤖 Версия: 2.0.0`,
     { 
       ...keyboard, 
       ...permKeyboard

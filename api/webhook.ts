@@ -3,6 +3,8 @@ import { bot } from '../src/bot';
 import { config } from '../src/config';
 
 export default async (req: VercelRequest, res: VercelResponse) => {
+  console.log('🔍 WEBHOOK VERSION: 2.0.0 - 10.02.2026 14:30');
+  
   try {
     if (req.method === 'POST') {
       await bot.handleUpdate(req.body);

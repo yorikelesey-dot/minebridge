@@ -1,5 +1,18 @@
 import { Markup } from 'telegraf';
 
+// Постоянная клавиатура (внизу экрана)
+export const permanentKeyboard = Markup.keyboard([
+  ['🏠 Главное меню', '📊 Статистика'],
+  ['🔧 Моды', '✨ Шейдеры'],
+  ['🎨 Ресурспаки', '🔍 Поиск'],
+]).resize();
+
+export const permanentKeyboardUser = Markup.keyboard([
+  ['🏠 Главное меню'],
+  ['🔧 Моды', '✨ Шейдеры'],
+  ['🎨 Ресурспаки', '🔍 Поиск'],
+]).resize();
+
 export const mainMenuKeyboard = Markup.inlineKeyboard([
   [
     Markup.button.callback('🔧 Моды', 'search_mod'),

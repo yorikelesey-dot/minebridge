@@ -70,44 +70,50 @@ export async function saveSearchHistory(userId: number, query: string, resultCou
 // Статистика для админа
 export async function getStats() {
   try {
-    // Общая статистика
-    const { data: totalUsers } = await supabase
+    // Уникальные пользователи
+    const { data: allRequests } = await supabase
       .from('user_requests')
-      .select('user_id', { count: 'exact', head: true });
+      .select('user_id');
 
-    const { data: totalRequests } = await supabase
+    const uniqueUsers = new Set(allRequests?.map((r: any) => r.user_id) || []).size;
+
+    // Общее количество запросов
+    const { count: totalRequests } = await supabase
       .from('user_requests')
       .select('*', { count: 'exact', head: true });
 
-    const { data: totalSearches } = await supabase
+    // Общее количество поисков
+    const { count: totalSearches } = await supabase
       .from('search_history')
       .select('*', { count: 'exact', head: true });
 
     // Активность за 24 часа
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     
-    const { data: activeUsers } = await supabase
+    const { data: activeRequestsToday } = await supabase
       .from('user_requests')
-      .select('user_id', { count: 'exact', head: true })
+      .select('user_id')
       .gte('timestamp', oneDayAgo);
 
-    const { data: requestsToday } = await supabase
+    const activeUsersToday = new Set(activeRequestsToday?.map((r: any) => r.user_id) || []).size;
+
+    const { count: requestsToday } = await supabase
       .from('user_requests')
       .select('*', { count: 'exact', head: true })
       .gte('timestamp', oneDayAgo);
 
-    const { data: searchesToday } = await supabase
+    const { count: searchesToday } = await supabase
       .from('search_history')
       .select('*', { count: 'exact', head: true })
       .gte('timestamp', oneDayAgo);
 
     return {
-      totalUsers: totalUsers?.length || 0,
-      totalRequests: totalRequests?.length || 0,
-      totalSearches: totalSearches?.length || 0,
-      activeUsersToday: activeUsers?.length || 0,
-      requestsToday: requestsToday?.length || 0,
-      searchesToday: searchesToday?.length || 0,
+      totalUsers: uniqueUsers,
+      totalRequests: totalRequests || 0,
+      totalSearches: totalSearches || 0,
+      activeUsersToday: activeUsersToday,
+      requestsToday: requestsToday || 0,
+      searchesToday: searchesToday || 0,
     };
   } catch (error) {
     console.error('Get stats error:', error);

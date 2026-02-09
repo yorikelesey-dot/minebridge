@@ -1,6 +1,6 @@
 import { Telegraf, Context } from 'telegraf';
 import { config } from './config';
-import { mainMenuKeyboard, adminMenuKeyboard, createResultsKeyboard, createVersionsKeyboard, gameVersionKeyboard, loaderKeyboard, statsMenuKeyboard } from './keyboards';
+import { mainMenuKeyboard, adminMenuKeyboard, createResultsKeyboard, createVersionsKeyboard, gameVersionKeyboard, loaderKeyboard, statsMenuKeyboard, permanentKeyboard, permanentKeyboardUser } from './keyboards';
 import { searchModrinth, getModrinthVersions } from './api/modrinth';
 import { searchCurseForge, getCurseForgeFiles } from './api/curseforge';
 import { checkRateLimit, logRequest, saveSearchHistory, getStats, getTopUsers, getPopularSearches, getActivityByHour } from './database';
@@ -65,11 +65,12 @@ function setUserState(userId: number, state: Omit<UserState, 'timestamp'>) {
 bot.command('start', async (ctx) => {
   const isAdmin = ctx.from?.id === config.adminUserId;
   const keyboard = isAdmin ? adminMenuKeyboard : mainMenuKeyboard;
+  const permKeyboard = isAdmin ? permanentKeyboard : permanentKeyboardUser;
   
   await ctx.reply(
     '👋 Привет! Я бот для поиска и скачивания модов Minecraft.\n\n' +
     'Выбери категорию или используй поиск:',
-    keyboard
+    { ...keyboard, ...permKeyboard }
   );
 });
 
@@ -81,6 +82,81 @@ bot.action('main_menu', async (ctx) => {
   await ctx.editMessageText(
     '🏠 Главное меню\n\nВыбери категорию или используй поиск:',
     keyboard
+  );
+});
+
+// Обработка кнопок постоянной клавиатуры
+bot.hears('🏠 Главное меню', async (ctx) => {
+  const isAdmin = ctx.from?.id === config.adminUserId;
+  const keyboard = isAdmin ? adminMenuKeyboard : mainMenuKeyboard;
+  
+  await ctx.reply(
+    '🏠 Главное меню\n\nВыбери категорию или используй поиск:',
+    keyboard
+  );
+});
+
+bot.hears('🔧 Моды', async (ctx) => {
+  const userId = ctx.from?.id;
+  if (!userId) return;
+
+  if (!(await checkRateLimit(userId))) {
+    return ctx.reply('⏳ Слишком много запросов. Подожди минуту.');
+  }
+
+  setUserState(userId, { action: 'select_version', projectType: 'mod' });
+  await ctx.reply('🎮 Выбери версию Minecraft:', gameVersionKeyboard);
+  await logRequest(userId, ctx.from?.username, 'search_mod');
+});
+
+bot.hears('✨ Шейдеры', async (ctx) => {
+  const userId = ctx.from?.id;
+  if (!userId) return;
+
+  if (!(await checkRateLimit(userId))) {
+    return ctx.reply('⏳ Слишком много запросов. Подожди минуту.');
+  }
+
+  setUserState(userId, { action: 'select_version', projectType: 'shader' });
+  await ctx.reply('🎮 Выбери версию Minecraft:', gameVersionKeyboard);
+  await logRequest(userId, ctx.from?.username, 'search_shader');
+});
+
+bot.hears('🎨 Ресурспаки', async (ctx) => {
+  const userId = ctx.from?.id;
+  if (!userId) return;
+
+  if (!(await checkRateLimit(userId))) {
+    return ctx.reply('⏳ Слишком много запросов. Подожди минуту.');
+  }
+
+  setUserState(userId, { action: 'select_version', projectType: 'resourcepack' });
+  await ctx.reply('🎮 Выбери версию Minecraft:', gameVersionKeyboard);
+  await logRequest(userId, ctx.from?.username, 'search_resourcepack');
+});
+
+bot.hears('🔍 Поиск', async (ctx) => {
+  const userId = ctx.from?.id;
+  if (!userId) return;
+
+  if (!(await checkRateLimit(userId))) {
+    return ctx.reply('⏳ Слишком много запросов. Подожди минуту.');
+  }
+
+  setUserState(userId, { action: 'search_custom' });
+  await ctx.reply('🔍 Введи запрос для поиска:');
+  await logRequest(userId, ctx.from?.username, 'search_custom');
+});
+
+bot.hears('📊 Статистика', async (ctx) => {
+  const userId = ctx.from?.id;
+  if (userId !== config.adminUserId) {
+    return ctx.reply('❌ Доступ запрещён');
+  }
+
+  await ctx.reply(
+    '📊 Статистика бота\n\nВыбери раздел:',
+    statsMenuKeyboard
   );
 });
 

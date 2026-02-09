@@ -1,4 +1,4 @@
-import { Telegraf, Context } from 'telegraf';
+import { Telegraf, Context, Markup } from 'telegraf';
 import { config } from './config';
 import { mainMenuKeyboard, adminMenuKeyboard, createResultsKeyboard, createVersionsKeyboard, gameVersionKeyboard, loaderKeyboard, statsMenuKeyboard, permanentKeyboard, permanentKeyboardUser } from './keyboards';
 import { searchModrinth, getModrinthVersions } from './api/modrinth';
@@ -67,27 +67,41 @@ bot.command('start', async (ctx) => {
   console.log('🔍 BOT VERSION: 2.0.0 - 10.02.2026 14:30');
   
   const isAdmin = ctx.from?.id === config.adminUserId;
-  const keyboard = isAdmin ? adminMenuKeyboard : mainMenuKeyboard;
-  const permKeyboard = isAdmin ? permanentKeyboard : permanentKeyboardUser;
   
-  // Сначала удаляем старую клавиатуру
-  await ctx.reply('🔄 Обновляю интерфейс...', {
-    reply_markup: { remove_keyboard: true }
-  });
+  const keyboard = Markup.inlineKeyboard([
+    [
+      Markup.button.callback('🔧 Моды', 'search_mod'),
+      Markup.button.callback('✨ Шейдеры', 'search_shader'),
+    ],
+    [
+      Markup.button.callback('🎨 Ресурспаки', 'search_resourcepack'),
+      Markup.button.callback('🔍 Поиск', 'search_custom'),
+    ],
+    [
+      Markup.button.callback('📢 Канал', 'open_channel'),
+      Markup.button.callback('🤖 Создать бота', 'create_bot_start'),
+    ],
+    [
+      Markup.button.callback('📈 Моя статистика', 'my_stats'),
+      Markup.button.callback('👥 О авторах', 'about_authors'),
+    ],
+    ...(isAdmin ? [[Markup.button.callback('📊 Админ', 'admin_stats')]] : []),
+  ]);
   
-  // Потом отправляем с новой клавиатурой
   await ctx.reply(
     '👋 Привет! Я бот для поиска и скачивания модов Minecraft.\n\n' +
-    '🔍 Выбери категорию или используй поиск:\n' +
+    '🔍 Выбери категорию:\n' +
     '• 🔧 Моды\n' +
     '• ✨ Шейдеры\n' +
     '• 🎨 Ресурспаки\n\n' +
-    `📢 Подпишись на наш канал для новостей: ${config.newsChannelLink}\n\n` +
-    `🤖 Версия: 2.0.0`,
-    { 
-      ...keyboard, 
-      ...permKeyboard
-    }
+    `📢 Канал: ${config.newsChannelLink}\n\n` +
+    `🤖 Версия: 2.0.0\n\n` +
+    `💡 Команды:\n` +
+    `/start - Главное меню\n` +
+    `/mybot - Управление ботом\n` +
+    `/mystats - Статистика\n` +
+    `/channel - Наш канал`,
+    keyboard
   );
 });
 
@@ -293,13 +307,211 @@ bot.action('about_authors', async (ctx) => {
   );
 });
 
+// Кнопка "Открыть канал"
+bot.action('open_channel', async (ctx) => {
+  await ctx.answerCbQuery();
+  await ctx.editMessageText(
+    '📢 Наш новостной канал\n\n' +
+    'Здесь ты найдёшь:\n' +
+    '• 🆕 Новые моды и обновления\n' +
+    '• 📰 Новости Minecraft\n' +
+    '• 💡 Полезные советы\n' +
+    '• 🎮 Интересные сборки\n\n' +
+    `Подписывайся: ${config.newsChannelLink}`,
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📢 Подписаться на канал', url: config.newsChannelLink }],
+          [{ text: '« Назад', callback_data: 'main_menu' }]
+        ]
+      }
+    }
+  );
+});
+
+// Кнопка "Создать бота"
+bot.action('create_bot_start', async (ctx) => {
+  const userId = ctx.from?.id;
+  if (!userId) return;
+
+  await ctx.answerCbQuery();
+
+  const existingBot = await getUserBot(userId);
+  
+  if (existingBot) {
+    await ctx.editMessageText(
+      `🤖 У тебя уже есть бот!\n\n` +
+      `Имя: ${existingBot.bot_name}\n` +
+      `Username: @${existingBot.bot_username}\n` +
+      `Статус: ${existingBot.is_active ? '✅ Активен' : '❌ Неактивен'}\n\n` +
+      `Хочешь удалить и создать нового?`,
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🤖 Открыть бота', url: `https://t.me/${existingBot.bot_username}` }],
+            [{ text: '🗑️ Удалить бота', callback_data: 'delete_my_bot' }],
+            [{ text: '« Назад', callback_data: 'main_menu' }]
+          ]
+        }
+      }
+    );
+    return;
+  }
+
+  setUserState(userId, { action: 'create_bot_token' });
+  
+  await ctx.editMessageText(
+    '🤖 Создание своего бота\n\n' +
+    '1️⃣ Открой @BotFather в Telegram\n' +
+    '2️⃣ Отправь команду /newbot\n' +
+    '3️⃣ Следуй инструкциям BotFather\n' +
+    '4️⃣ Скопируй токен бота\n' +
+    '5️⃣ Отправь токен мне\n\n' +
+    '⚠️ Токен выглядит так:\n' +
+    '`1234567890:ABCdefGHIjklMNOpqrsTUVwxyz`\n\n' +
+    '❗ Твой бот будет работать с нашим кодом и брендингом.\n' +
+    '❗ Максимум 1 бот на пользователя.',
+    { 
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '« Отмена', callback_data: 'main_menu' }]
+        ]
+      }
+    }
+  );
+});
+
+// Кнопка "Моя статистика"
+bot.action('my_stats', async (ctx) => {
+  const userId = ctx.from?.id;
+  if (!userId) return;
+
+  await ctx.answerCbQuery();
+
+  try {
+    const { data: requests } = await supabase
+      .from('user_requests')
+      .select('*')
+      .eq('user_id', userId);
+
+    const { data: searches } = await supabase
+      .from('search_history')
+      .select('*')
+      .eq('user_id', userId);
+
+    const { data: downloads } = await supabase
+      .from('download_stats')
+      .select('*')
+      .eq('user_id', userId);
+
+    const categories = new Map<string, number>();
+    requests?.forEach((req: any) => {
+      const type = req.request_type.replace('search_', '');
+      categories.set(type, (categories.get(type) || 0) + 1);
+    });
+
+    const topCategory = Array.from(categories.entries())
+      .sort((a, b) => b[1] - a[1])[0];
+
+    let message = '📈 Твоя статистика\n\n';
+    message += `📊 Всего запросов: ${requests?.length || 0}\n`;
+    message += `🔍 Поисков: ${searches?.length || 0}\n`;
+    message += `📥 Скачиваний: ${downloads?.length || 0}\n\n`;
+    
+    if (topCategory) {
+      const categoryNames: Record<string, string> = {
+        mod: '🔧 Моды',
+        shader: '✨ Шейдеры',
+        resourcepack: '🎨 Ресурспаки',
+      };
+      message += `❤️ Любимая категория: ${categoryNames[topCategory[0]] || topCategory[0]}\n`;
+    }
+
+    if (searches && searches.length > 0) {
+      message += '\n🔎 Последние поиски:\n';
+      searches.slice(-5).reverse().forEach((search: any) => {
+        message += `• ${search.query}\n`;
+      });
+    }
+
+    await ctx.editMessageText(message, {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '« Назад', callback_data: 'main_menu' }]
+        ]
+      }
+    });
+  } catch (error) {
+    console.error('MyStats error:', error);
+    await ctx.editMessageText('❌ Ошибка загрузки статистики', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '« Назад', callback_data: 'main_menu' }]
+        ]
+      }
+    });
+  }
+});
+
 // Обработка кнопок постоянной клавиатуры
 bot.hears('🏠 Главное меню', async (ctx) => {
   const isAdmin = ctx.from?.id === config.adminUserId;
-  const keyboard = isAdmin ? adminMenuKeyboard : mainMenuKeyboard;
+  
+  const keyboard = Markup.inlineKeyboard([
+    [
+      Markup.button.callback('🔧 Моды', 'search_mod'),
+      Markup.button.callback('✨ Шейдеры', 'search_shader'),
+    ],
+    [
+      Markup.button.callback('🎨 Ресурспаки', 'search_resourcepack'),
+      Markup.button.callback('🔍 Поиск', 'search_custom'),
+    ],
+    [
+      Markup.button.callback('📢 Канал', 'open_channel'),
+      Markup.button.callback('🤖 Создать бота', 'create_bot_start'),
+    ],
+    [
+      Markup.button.callback('📈 Моя статистика', 'my_stats'),
+      Markup.button.callback('👥 О авторах', 'about_authors'),
+    ],
+    ...(isAdmin ? [[Markup.button.callback('📊 Админ', 'admin_stats')]] : []),
+  ]);
   
   await ctx.reply(
-    '🏠 Главное меню\n\nВыбери категорию или используй поиск:',
+    '🏠 Главное меню\n\n🔍 Выбери категорию:',
+    keyboard
+  );
+});
+
+// Главное меню (callback)
+bot.action('main_menu', async (ctx) => {
+  await ctx.answerCbQuery();
+  
+  const isAdmin = ctx.from?.id === config.adminUserId;
+  
+  const keyboard = Markup.inlineKeyboard([
+    [
+      Markup.button.callback('🔧 Моды', 'search_mod'),
+      Markup.button.callback('✨ Шейдеры', 'search_shader'),
+    ],
+    [
+      Markup.button.callback('🎨 Ресурспаки', 'search_resourcepack'),
+      Markup.button.callback('🔍 Поиск', 'search_custom'),
+    ],
+    [
+      Markup.button.callback('📢 Канал', 'open_channel'),
+      Markup.button.callback('🤖 Создать бота', 'create_bot_start'),
+    ],
+    [
+      Markup.button.callback('📈 Моя статистика', 'my_stats'),
+      Markup.button.callback('👥 О авторах', 'about_authors'),
+    ],
+    ...(isAdmin ? [[Markup.button.callback('📊 Админ', 'admin_stats')]] : []),
+  ]);
+  
+  await ctx.editMessageText(
+    '🏠 Главное меню\n\n🔍 Выбери категорию:',
     keyboard
   );
 });

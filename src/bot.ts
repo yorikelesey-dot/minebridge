@@ -7,7 +7,16 @@ import { checkRateLimit, logRequest, saveSearchHistory, getStats, getTopUsers, g
 import { downloadFile, formatFileSize, canSendDirectly } from './utils/download';
 import { supabase } from './database';
 
-export const bot = new Telegraf(config.telegramToken);
+// Создаём бота с увеличенным timeout для Vercel
+export const bot = new Telegraf(config.telegramToken, {
+  telegram: {
+    apiRoot: 'https://api.telegram.org',
+    webhookReply: false, // Отключаем автоответ через webhook
+    agent: undefined,
+    attachmentAgent: undefined,
+  },
+  handlerTimeout: 60000, // 60 секунд на обработку
+});
 
 // Хранилище состояний пользователей
 interface UserState {

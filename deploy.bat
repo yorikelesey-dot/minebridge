@@ -1,78 +1,187 @@
 @echo off
 chcp 65001 >nul
-echo.
+
+:menu
+cls
 echo ========================================
-echo 🚀 MineBridge - Полный деплой
+echo 🤖 УПРАВЛЕНИЕ БОТОМ MINEBRIDGE
+echo ========================================
+echo.
+echo Выбери действие:
+echo.
+echo 1. 🚀 Полный деплой (build + git + webhook)
+echo 2. 🔨 Только компиляция (npm run build)
+echo 3. 🔄 Сбросить webhook
+echo 4. 🔍 Проверить webhook
+echo 5. 📊 Проверить права бота в канале
+echo 6. 📬 Получить последние обновления
+echo 7. 📤 Git push (без build)
+echo 8. ❌ Выход
+echo.
+set /p choice="Введи номер: "
+
+if "%choice%"=="1" goto deploy
+if "%choice%"=="2" goto build
+if "%choice%"=="3" goto reset_webhook
+if "%choice%"=="4" goto check_webhook
+if "%choice%"=="5" goto check_permissions
+if "%choice%"=="6" goto get_updates
+if "%choice%"=="7" goto git_push
+if "%choice%"=="8" goto end
+goto menu
+
+:deploy
+cls
+echo ========================================
+echo 🚀 ПОЛНЫЙ ДЕПЛОЙ БОТА
 echo ========================================
 echo.
 
-REM Проверка изменений
 echo 📋 Проверяю изменения...
 git status --short
 echo.
 
-REM Компиляция
 echo 🔨 Компилирую TypeScript...
 call npm run build
 if %errorlevel% neq 0 (
-    echo.
     echo ❌ Ошибка компиляции!
     pause
-    exit /b 1
+    goto menu
 )
 echo ✅ Компиляция успешна
 echo.
 
-REM Git add
 echo 📦 Добавляю файлы в git...
 git add .
 echo.
 
-REM Запрос сообщения коммита
 set /p commit_msg="💬 Введи сообщение коммита: "
 if "%commit_msg%"=="" set commit_msg=Update
 
-REM Коммит
-echo 📝 Создаю коммит...
 git commit -m "%commit_msg%"
 if %errorlevel% neq 0 (
-    echo.
-    echo ⚠️ Нет изменений для коммита или ошибка
-    echo.
+    echo ⚠️ Нет изменений для коммита
     choice /C YN /M "Продолжить деплой без коммита?"
-    if errorlevel 2 exit /b 0
+    if errorlevel 2 goto menu
 )
 echo.
 
-REM Push
 echo 🚀 Отправляю на GitHub...
 git push origin main
 if %errorlevel% neq 0 (
-    echo.
-    echo ❌ Ошибка push!
+    echo ❌ Ошибка при пуше!
     pause
-    exit /b 1
+    goto menu
 )
-echo ✅ Код отправлен на GitHub
+echo ✅ Код загружен на GitHub
 echo.
 
-REM Ожидание деплоя
-echo ⏳ Жду деплой на Vercel (30 секунд)...
+echo ⏳ Жду деплой Vercel (30 секунд)...
 timeout /t 30 /nobreak >nul
 echo.
 
-REM Сброс бота
-echo 🔄 Сбрасываю бота...
+echo 🔄 Обновляю webhook...
 node reset-bot.js
 echo.
 
 echo ========================================
-echo ✅ Деплой завершён!
+echo ✅ ДЕПЛОЙ ЗАВЕРШЁН!
 echo ========================================
 echo.
-echo 📝 Что дальше:
-echo 1. Отправь боту /start
-echo 2. Проверь новые функции
-echo 3. Проверь логи: https://vercel.com/dashboard
+pause
+goto menu
+
+:build
+cls
+echo ========================================
+echo 🔨 КОМПИЛЯЦИЯ TYPESCRIPT
+echo ========================================
+echo.
+call npm run build
+if %errorlevel% neq 0 (
+    echo ❌ Ошибка компиляции!
+) else (
+    echo ✅ Компиляция успешна
+)
 echo.
 pause
+goto menu
+
+:reset_webhook
+cls
+echo ========================================
+echo 🔄 СБРОС WEBHOOK
+echo ========================================
+echo.
+node reset-bot.js
+echo.
+pause
+goto menu
+
+:check_webhook
+cls
+echo ========================================
+echo 🔍 ПРОВЕРКА WEBHOOK
+echo ========================================
+echo.
+node check-webhook.js
+echo.
+pause
+goto menu
+
+:check_permissions
+cls
+echo ========================================
+echo 📊 ПРОВЕРКА ПРАВ БОТА
+echo ========================================
+echo.
+node check-bot-permissions.js
+echo.
+pause
+goto menu
+
+:get_updates
+cls
+echo ========================================
+echo 📬 ПОЛУЧЕНИЕ ОБНОВЛЕНИЙ
+echo ========================================
+echo.
+node get-updates.js
+echo.
+pause
+goto menu
+
+:git_push
+cls
+echo ========================================
+echo 📤 GIT PUSH (БЕЗ BUILD)
+echo ========================================
+echo.
+
+echo 📋 Проверяю изменения...
+git status --short
+echo.
+
+echo 📦 Добавляю файлы в git...
+git add .
+echo.
+
+set /p commit_msg="💬 Введи сообщение коммита: "
+if "%commit_msg%"=="" set commit_msg=Update
+
+git commit -m "%commit_msg%"
+echo.
+
+echo 🚀 Отправляю на GitHub...
+git push origin main
+if %errorlevel% neq 0 (
+    echo ❌ Ошибка при пуше!
+) else (
+    echo ✅ Код загружен на GitHub
+)
+echo.
+pause
+goto menu
+
+:end
+exit

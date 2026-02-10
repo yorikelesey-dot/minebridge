@@ -2,38 +2,30 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import { bot } from '../src/bot';
 import { config } from '../src/config';
 
-// Retry функция для обработки timeout
-async function handleUpdateWithRetry(update: any, maxRetries = 2) {
-  for (let i = 0; i <= maxRetries; i++) {
-    try {
-      await bot.handleUpdate(update);
-      return;
-    } catch (error: any) {
-      const isTimeout = error.code === 'ETIMEDOUT' || error.errno === 'ETIMEDOUT';
-      const isLastAttempt = i === maxRetries;
-      
-      if (isTimeout && !isLastAttempt) {
-        console.log(`⚠️ Timeout on attempt ${i + 1}, retrying...`);
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Ждём 1 секунду
-        continue;
-      }
-      throw error;
-    }
-  }
-}
-
 export default async (req: VercelRequest, res: VercelResponse) => {
-  console.log('🔍 WEBHOOK VERSION: 2.1.0 - 10.02.2026 18:35');
+  console.log('🔍 WEBHOOK VERSION: 2.2.0 - 10.02.2026 18:40');
   
   try {
     if (req.method === 'POST') {
-      // Отвечаем сразу, чтобы Telegram не ждал
-      res.status(200).json({ ok: true });
+      // Обрабатываем update с timeout защитой
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Handler timeout')), 25000)
+      );
       
-      // Обрабатываем update асинхронно с retry
-      handleUpdateWithRetry(req.body).catch(error => {
-        console.error('Update handling error:', error);
-      });
+      const handlePromise = bot.handleUpdate(req.body);
+      
+      try {
+        await Promise.race([handlePromise, timeoutPromise]);
+        res.status(200).json({ ok: true });
+      } catch (error: any) {
+        // Если timeout или ETIMEDOUT - всё равно отвечаем 200
+        if (error.message === 'Handler timeout' || error.code === 'ETIMEDOUT') {
+          console.log('⚠️ Timeout, but responding OK to Telegram');
+          res.status(200).json({ ok: true });
+        } else {
+          throw error;
+        }
+      }
     } else if (req.method === 'GET') {
       // Установка вебхука с allowed_updates для получения channel_post
       const webhookUrl = `https://${config.webhookDomain}/api/webhook`;

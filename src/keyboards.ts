@@ -114,6 +114,19 @@ export const loaderKeyboard = Markup.inlineKeyboard([
   ],
 ]);
 
+export const shaderLoaderKeyboard = Markup.inlineKeyboard([
+  [
+    Markup.button.callback('👁️ Iris', 'loader_iris'),
+    Markup.button.callback('🔍 Optifine', 'loader_optifine'),
+  ],
+  [
+    Markup.button.callback('🔙 Любой', 'loader_any'),
+  ],
+  [
+    Markup.button.callback('« Назад', 'main_menu'),
+  ],
+]);
+
 export function createResultsKeyboard(results: any[], source: 'modrinth' | 'curseforge', type: string, page: number = 0) {
   const itemsPerPage = 5;
   const totalPages = Math.ceil(results.length / itemsPerPage);

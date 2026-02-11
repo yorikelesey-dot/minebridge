@@ -1,6 +1,6 @@
 import { Telegraf, Context, Markup } from 'telegraf';
 import { config } from './config';
-import { mainMenuKeyboard, adminMenuKeyboard, createResultsKeyboard, createVersionsKeyboard, gameVersionKeyboard, loaderKeyboard, statsMenuKeyboard, permanentKeyboard, permanentKeyboardUser } from './keyboards';
+import { mainMenuKeyboard, adminMenuKeyboard, createResultsKeyboard, createVersionsKeyboard, gameVersionKeyboard, loaderKeyboard, shaderLoaderKeyboard, statsMenuKeyboard, permanentKeyboard, permanentKeyboardUser } from './keyboards';
 import { searchModrinth, getModrinthVersions } from './api/modrinth';
 import { searchCurseForge, getCurseForgeFiles } from './api/curseforge';
 import { checkRateLimit, logRequest, saveSearchHistory, getStats, getTopUsers, getPopularSearches, getActivityByHour, logDownload, getDownloadStats, createUserBot, getUserBot, deleteUserBot } from './database';
@@ -680,10 +680,28 @@ bot.action(/version_(.+)/, async (ctx) => {
   }
 
   state.gameVersion = version === 'any' ? undefined : version;
+  
+  // Для ресурспаков пропускаем выбор загрузчика
+  if (state.projectType === 'resourcepack') {
+    state.action = 'search_input';
+    setUserState(userId, state);
+    
+    let filterText = '';
+    if (state.gameVersion) filterText += `\n🎮 Версия: ${state.gameVersion}`;
+    
+    await ctx.editMessageText(`🔍 Введи название ресурспака для поиска:${filterText}`);
+    return;
+  }
+  
+  // Для шейдеров и модов - выбор загрузчика
   state.action = 'select_loader';
   setUserState(userId, state);
 
-  await ctx.editMessageText('⚙️ Выбери загрузчик модов:', loaderKeyboard);
+  if (state.projectType === 'shader') {
+    await ctx.editMessageText('⚙️ Выбери загрузчик шейдеров:', shaderLoaderKeyboard);
+  } else {
+    await ctx.editMessageText('⚙️ Выбери загрузчик модов:', loaderKeyboard);
+  }
 });
 
 // Выбор загрузчика
@@ -732,10 +750,24 @@ bot.on('text', async (ctx) => {
   // Обработка кастомного ввода версии
   if (state.action === 'input_version') {
     state.gameVersion = text.trim();
+    
+    // Для ресурспаков пропускаем выбор загрузчика
+    if (state.projectType === 'resourcepack') {
+      state.action = 'search_input';
+      setUserState(userId, state);
+      
+      await ctx.reply(`✅ Версия установлена: ${text}\n\n🔍 Введи название ресурспака для поиска:`);
+      return;
+    }
+    
     state.action = 'select_loader';
     setUserState(userId, state);
     
-    await ctx.reply(`✅ Версия установлена: ${text}\n\n⚙️ Теперь выбери загрузчик:`, loaderKeyboard);
+    if (state.projectType === 'shader') {
+      await ctx.reply(`✅ Версия установлена: ${text}\n\n⚙️ Теперь выбери загрузчик шейдеров:`, shaderLoaderKeyboard);
+    } else {
+      await ctx.reply(`✅ Версия установлена: ${text}\n\n⚙️ Теперь выбери загрузчик модов:`, loaderKeyboard);
+    }
     return;
   }
 

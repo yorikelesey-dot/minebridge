@@ -1,6 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { bot } from '../src/bot';
-import { config } from '../src/config';
+import { bot } from '../dist/bot';
+import { config } from '../dist/config';
 
 export default async (req: VercelRequest, res: VercelResponse) => {
   console.log('🔍 WEBHOOK VERSION: 2.2.0 - 10.02.2026 18:40');

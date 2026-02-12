@@ -171,6 +171,14 @@ ALTER TABLE download_stats ENABLE ROW LEVEL SECURITY;
 ### 4.3 Создание политик
 
 ```sql
+-- Удаление существующих политик (если повторно запускаешь)
+DROP POLICY IF EXISTS "Service role full access" ON user_requests;
+DROP POLICY IF EXISTS "Service role full access" ON search_history;
+DROP POLICY IF EXISTS "Service role full access" ON download_stats;
+DROP POLICY IF EXISTS "Anon can insert" ON user_requests;
+DROP POLICY IF EXISTS "Anon can insert" ON search_history;
+DROP POLICY IF EXISTS "Anon can insert" ON download_stats;
+
 -- Политика для service_role (полный доступ)
 CREATE POLICY "Service role full access" 
 ON user_requests FOR ALL 
@@ -488,12 +496,4 @@ SELECT cleanup_old_data();
 
 - [ ] Проект создан в Supabase
 - [ ] Ключи скопированы в `.env`
-- [ ] Таблицы созданы
-- [ ] Индексы созданы
-- [ ] RLS настроен
-- [ ] Функции созданы
-- [ ] Представления созданы
-- [ ] Тестовые данные вставлены и удалены
-- [ ] Мониторинг работает
-
-**Готово!** Теперь бот может использовать Supabase 🎉
+- [ ] Таб

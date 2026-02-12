@@ -1,25 +1,4 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "api/webhook.ts",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/cleanup.ts",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/webhook",
-      "dest": "api/webhook.ts"
-    },
-    {
-      "src": "/api/cleanup",
-      "dest": "api/cleanup.ts"
-    }
-  ],
   "crons": [
     {
       "path": "/api/cleanup",

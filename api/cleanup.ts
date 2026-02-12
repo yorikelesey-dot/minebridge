@@ -1,5 +1,5 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabase } from '../src/database';
+import { supabase } from '../dist/database';
 
 export default async (req: VercelRequest, res: VercelResponse) => {
   try {

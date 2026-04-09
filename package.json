@@ -29,15 +29,17 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "telegraf": "^4.16.3",
     "@supabase/supabase-js": "^2.39.7",
+    "@types/ioredis": "^4.28.10",
+    "@vercel/node": "^3.0.21",
     "axios": "^1.6.7",
     "dotenv": "^16.4.1",
-    "@vercel/node": "^3.0.21"
+    "ioredis": "^5.10.1",
+    "telegraf": "^4.16.3"
   },
   "devDependencies": {
     "@types/node": "^20.11.16",
-    "typescript": "^5.3.3",
-    "tsx": "^4.7.1"
+    "tsx": "^4.7.1",
+    "typescript": "^5.3.3"
   }
 }

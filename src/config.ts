@@ -8,6 +8,7 @@ export const config = {
   supabaseUrl: process.env.SUPABASE_URL || '',
   supabaseKey: process.env.SUPABASE_KEY || '',
   webhookDomain: process.env.WEBHOOK_DOMAIN || '',
+  redisUrl: process.env.REDIS_URL || '', // Redis URL для кэширования
   maxFileSize: 50 * 1024 * 1024, // 50 MB
   rateLimitRequests: 3,
   rateLimitWindow: 60000, // 1 minute
